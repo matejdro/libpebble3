@@ -8,12 +8,26 @@ See https://github.com/coredevices/libpebble3/wiki/Roadmap
 
 See https://github.com/coredevices/libpebble3/wiki/Roadmap
 
+## Enabling PebbleKit Android 2
+
+To fully enable PebbleKit Android 2 support, you have to add this provider to your `AndroidManifest.xml`:
+
+```xml
+<provider
+    android:authorities="[YOUR_PACKAGE].pebblekit"
+    android:name="io.rebble.libpebblecommon.pebblekit.two.PebbleKitProvider"
+    android:permission="io.rebble.pebblekit2.permission.READ_PROVIDER"
+    android:exported="true" />
+```
+
+Where the `[YOUR_PACKAGE]` is the package name of your application.
+
 ## Enabling PebbleKit Android Classic
 
 To fully enable PebbleKit Android Classic, you have to add this provider to your `AndroidManifest.xml`:
 
 ```xml
-<provider
+<providers
     android:authorities="com.getpebble.android.provider.basalt"
     android:name="io.rebble.libpebblecommon.pebblekit.PebbleKitProvider"
     tools:ignore="ExportedContentProvider"
