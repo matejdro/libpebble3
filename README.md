@@ -29,7 +29,7 @@ To fully enable PebbleKit Android Classic, you have to add this provider to your
 ```xml
 <providers
     android:authorities="com.getpebble.android.provider.basalt"
-    android:name="io.rebble.libpebblecommon.pebblekit.PebbleKitProvider"
+    android:name="io.rebble.libpebblecommon.pebblekit.classic.PebbleKitProvider"
     tools:ignore="ExportedContentProvider"
     android:exported="true" />
 ```
