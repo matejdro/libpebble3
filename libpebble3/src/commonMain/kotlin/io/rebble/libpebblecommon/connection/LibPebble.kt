@@ -283,6 +283,7 @@ class LibPebble3(
             libPebbleCoroutineScope.launch { forEachConnectedWatch { updateTime() } }
         }
         housekeeping.init()
+        locker.init()
 
         performPlatformSpecificInit()
     }
