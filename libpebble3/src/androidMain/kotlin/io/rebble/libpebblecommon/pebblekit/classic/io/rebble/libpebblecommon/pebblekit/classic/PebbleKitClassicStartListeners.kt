@@ -21,11 +21,17 @@ class PebbleKitClassicStartListeners(
 
     fun init() {
         coroutineScope.launch {
-            IntentFilter(INTENT_APP_START).asFlow(context, exported = true).collect { intent ->
-                logger.v { "Got intent: $intent" }
-                val uuid = intent.getSerializableExtra(APP_UUID) as UUID? ?: return@collect
-                logger.d { "Got app start: $uuid" }
-                libPebble.launchApp(uuid.toKotlinUuid())
+            try {
+                IntentFilter(INTENT_APP_START).asFlow(context, exported = true).collect { intent ->
+                    logger.v { "Got intent: $intent" }
+                    val uuid = intent.getSerializableExtra(APP_UUID) as UUID? ?: return@collect
+                    logger.d { "Got app start: $uuid" }
+                    libPebble.launchApp(uuid.toKotlinUuid())
+                }
+            } catch (e: Exception) {
+                logger.e(e) { "App start intent failure" }
+            } finally {
+                logger.d { "App start intent finalized" }
             }
         }
 
