@@ -389,6 +389,13 @@ class BlobDbEntityProcessor(
                         """.trimIndent())
                     .build()
             )
+
+            val disableSyncOnSystemEntries = if (annotation.databaseId == BlobDatabase.App) {
+                ", !it.systemApp"
+            } else {
+                ""
+            }
+
             daoBuilder.addFunction(
                 FunSpec.builder("insertOrReplace")
                     .addModifiers(KModifier.SUSPEND)
@@ -397,7 +404,7 @@ class BlobDbEntityProcessor(
                         val mapped = items.map {
                             val hashcode = it.recordHashCode()
                             val deleted = false
-                            $entityClassName(hashcode, deleted, it)
+                            $entityClassName(hashcode, deleted, it$disableSyncOnSystemEntries)
                         }
                         insertOrReplaceAll(mapped)
                         """.trimIndent())

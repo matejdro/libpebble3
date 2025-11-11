@@ -108,6 +108,7 @@ interface LockerEntryRealDao : LockerEntryDao {
             WHEN orderIndex < :syncLimit THEN 1
             ELSE 0
         END
+        WHERE systemApp = 0
     """)
     suspend fun updateSync(syncLimit: Int)
 }
