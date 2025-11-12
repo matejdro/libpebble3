@@ -36,6 +36,7 @@ import io.rebble.libpebblecommon.database.entity.WatchSettingsDao
 import io.rebble.libpebblecommon.database.entity.WatchSettingsEntity
 import io.rebble.libpebblecommon.database.entity.WatchSettingsSyncEntity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 
 internal const val DATABASE_FILENAME = "libpebble3.db"
 
