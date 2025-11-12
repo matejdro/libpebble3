@@ -305,7 +305,7 @@ fun fakeWatch(connected: Boolean = Random.nextBoolean()): PebbleDevice {
             )
             FirmwareUpdater.FirmwareUpdateStatus.InProgress(fakeUpdate, MutableStateFlow(0.47f))
         } else {
-            FirmwareUpdater.FirmwareUpdateStatus.NotInProgress.Idle
+            FirmwareUpdater.FirmwareUpdateStatus.NotInProgress.Idle()
         }
         val fwupAvailable = if (!updating && Random.nextBoolean()) {
             FirmwareUpdateCheckResult.FoundUpdate(
