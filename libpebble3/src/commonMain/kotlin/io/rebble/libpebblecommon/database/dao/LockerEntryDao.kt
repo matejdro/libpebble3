@@ -124,10 +124,10 @@ interface LockerEntryRealDao : LockerEntryDao {
     @Query("""
         UPDATE LockerEntryEntity
         SET sync = CASE
+            WHEN systemApp = 1 THEN 0
             WHEN orderIndex < :syncLimit THEN 1
             ELSE 0
         END
-        WHERE systemApp = 0
     """)
     suspend fun updateSync(syncLimit: Int)
 }
