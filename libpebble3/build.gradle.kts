@@ -83,7 +83,6 @@ kotlin {
 
     jvm()
 
-   if (enableIosTarget) {
        val xcodeExists by lazy { // Define xcodeExists and xcodeDir here to be accessible by iOS targets
            project.providers.exec {
                isIgnoreExitValue = true
@@ -105,6 +104,7 @@ kotlin {
            iosArm64(),
            iosSimulatorArm64()
        ).forEach { target ->
+           if (enableIosTarget) {
            val osName = when (target.name) {
                "iosX64" -> "iphonesimulator"
                "iosArm64" -> "iphoneos"
