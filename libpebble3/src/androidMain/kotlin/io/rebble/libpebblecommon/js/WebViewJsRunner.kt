@@ -46,18 +46,17 @@ import kotlin.coroutines.resumeWithException
 
 class WebViewJsRunner(
     appContext: AppContext,
-    libPebble: LibPebble,
+    private val libPebble: LibPebble,
     jsTokenUtil: JsTokenUtil,
-
     device: CompanionAppDevice,
     private val scope: CoroutineScope,
     appInfo: PbwAppInfo,
     lockerEntry: LockerEntry,
     jsPath: Path,
     urlOpenRequests: Channel<String>,
-    private val logMessages: Channel<String>,
-
-    ): JsRunner(appInfo, lockerEntry, jsPath, device, urlOpenRequests), LibPebbleKoinComponent {
+    logMessages: Channel<String>,
+    remoteTimelineEmulator: RemoteTimelineEmulator,
+): JsRunner(appInfo, lockerEntry, jsPath, device, urlOpenRequests), LibPebbleKoinComponent {
     private val context = appContext.context
     companion object {
         const val API_NAMESPACE = "Pebble"
@@ -68,8 +67,8 @@ class WebViewJsRunner(
 
     private var webView: WebView? = null
     private val initializedLock = Object()
-    private val publicJsInterface = WebViewPKJSInterface(this, device, context, libPebble, jsTokenUtil)
-    private val privateJsInterface = WebViewPrivatePKJSInterface(this, device, scope, _outgoingAppMessages, logMessages)
+    private val publicJsInterface = WebViewPKJSInterface(this, device, context, libPebble, jsTokenUtil, remoteTimelineEmulator)
+    private val privateJsInterface = WebViewPrivatePKJSInterface(this, device, scope, _outgoingAppMessages, logMessages, jsTokenUtil, remoteTimelineEmulator)
     private val localStorageInterface = WebViewJSLocalStorageInterface(appInfo.uuid, appContext) {
         runBlocking(Dispatchers.Main) {
             webView?.evaluateJavascript(
@@ -193,6 +192,9 @@ class WebViewJsRunner(
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     private suspend fun init() = withContext(Dispatchers.Main) {
+        if (libPebble.config.value.watchConfig.pkjsInspectable) {
+            WebView.setWebContentsDebuggingEnabled(true) // Sadly sets globally for this process
+        }
         webView = WebView(context).also {
             it.setWillNotDraw(true)
             val settings = it.settings
@@ -350,11 +352,13 @@ class WebViewJsRunner(
                                 script.type = "text/javascript";
                                 script.onreadystatechange = signalLoaded;
                                 script.onload = signalLoaded;
+                                script.charset = "utf-8";
                                 script.src = ${Json.encodeToString(urlAsUri)};
                                 head.appendChild(script);
                             })();
                             """.trimIndent()
                 ) { value -> logger.d { "added app script tag" } }
+                webView.evaluateJavascript("document.title = ${Json.encodeToString("PKJS: ${appInfo.longName}")};", null)
             }
         } ?: error("WebView not initialized")
     }
@@ -362,14 +366,14 @@ class WebViewJsRunner(
     override suspend fun signalTimelineToken(callId: String, token: String) {
         val tokenJson = Json.encodeToString(mapOf("userToken" to token, "callId" to callId))
         withContext(Dispatchers.Main) {
-            webView?.evaluateJavascript("window.signalTimelineTokenSuccess('${Uri.encode(tokenJson)}')", null)
+            webView?.evaluateJavascript("window.signalTimelineTokenSuccess(${Json.encodeToString(tokenJson)})", null)
         }
     }
 
     override suspend fun signalTimelineTokenFail(callId: String) {
         val tokenJson = Json.encodeToString(mapOf("userToken" to null, "callId" to callId))
         withContext(Dispatchers.Main) {
-            webView?.evaluateJavascript("window.signalTimelineTokenFailure('${Uri.encode(tokenJson)}')", null)
+            webView?.evaluateJavascript("window.signalTimelineTokenFailure(${Json.encodeToString(tokenJson)})", null)
         }
     }
 
@@ -385,21 +389,21 @@ class WebViewJsRunner(
     override suspend fun signalNewAppMessageData(data: String?): Boolean {
         readyState.first { it }
         withContext(Dispatchers.Main) {
-            webView?.evaluateJavascript("window.signalNewAppMessageData(${"'" + (data ?: "null") + "'"})", null)
+            webView?.evaluateJavascript("window.signalNewAppMessageData(${data?.let { Json.encodeToString(data) } ?: "null"})", null)
         }
         return true
     }
 
     override suspend fun signalAppMessageAck(data: String?): Boolean {
         withContext(Dispatchers.Main) {
-            webView?.evaluateJavascript("window.signalAppMessageAck(${"'" + (data ?: "null") + "'"})", null)
+            webView?.evaluateJavascript("window.signalAppMessageAck(${data?.let { Json.encodeToString(data) } ?: "null"})", null)
         }
         return true
     }
 
     override suspend fun signalAppMessageNack(data: String?): Boolean {
         withContext(Dispatchers.Main) {
-            webView?.evaluateJavascript("window.signalAppMessageNack(${"'" + (data ?: "null") + "'"})", null)
+            webView?.evaluateJavascript("window.signalAppMessageNack(${data?.let { Json.encodeToString(data) } ?: "null"})", null)
         }
         return true
     }
@@ -433,5 +437,9 @@ class WebViewJsRunner(
                 } ?: cont.resumeWithException(IllegalStateException("WebView not initialized"))
             }
         }
+    }
+
+    override fun debugForceGC() {
+        // No-op on Android
     }
 }

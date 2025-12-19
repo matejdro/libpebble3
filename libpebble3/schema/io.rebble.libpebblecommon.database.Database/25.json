@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 25,
-    "identityHash": "3094eed050c768aab8acddd964ec803c",
+    "identityHash": "f8d6f4156f4d4645ca89a71d78787a4a",
     "entities": [
       {
         "tableName": "KnownWatchItem",
@@ -79,7 +79,7 @@
       },
       {
         "tableName": "LockerEntryEntity",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`recordHashcode` INTEGER NOT NULL, `deleted` INTEGER NOT NULL, `sync` INTEGER NOT NULL DEFAULT 1, `id` TEXT NOT NULL, `version` TEXT NOT NULL, `title` TEXT NOT NULL, `type` TEXT NOT NULL, `developerName` TEXT NOT NULL, `configurable` INTEGER NOT NULL, `pbwVersionCode` TEXT NOT NULL, `category` TEXT, `sideloaded` INTEGER NOT NULL, `sideloadeTimestamp` INTEGER, `platforms` TEXT NOT NULL, `iosCompanion` TEXT, `androidCompanion` TEXT, `orderIndex` INTEGER NOT NULL DEFAULT 0, `systemApp` INTEGER NOT NULL DEFAULT 0, `hearts` INTEGER, `developerId` TEXT, `timelineEnabled` INTEGER, `removeLink` TEXT, `shareLink` TEXT, `pbwLink` TEXT, `userToken` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`recordHashcode` INTEGER NOT NULL, `deleted` INTEGER NOT NULL, `sync` INTEGER NOT NULL DEFAULT 1, `id` TEXT NOT NULL, `version` TEXT NOT NULL, `title` TEXT NOT NULL, `type` TEXT NOT NULL, `developerName` TEXT NOT NULL, `configurable` INTEGER NOT NULL, `pbwVersionCode` TEXT NOT NULL, `category` TEXT, `sideloaded` INTEGER NOT NULL, `sideloadeTimestamp` INTEGER, `platforms` TEXT NOT NULL, `iosCompanion` TEXT, `androidCompanion` TEXT, `orderIndex` INTEGER NOT NULL DEFAULT 0, `hearts` INTEGER, `developerId` TEXT, `timelineEnabled` INTEGER, `removeLink` TEXT, `shareLink` TEXT, `pbwLink` TEXT, `userToken` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "recordHashcode",
@@ -177,13 +177,6 @@
           {
             "fieldPath": "record.orderIndex",
             "columnName": "orderIndex",
-            "affinity": "INTEGER",
-            "notNull": true,
-            "defaultValue": "0"
-          },
-          {
-            "fieldPath": "record.systemApp",
-            "columnName": "systemApp",
             "affinity": "INTEGER",
             "notNull": true,
             "defaultValue": "0"
@@ -762,7 +755,7 @@
       },
       {
         "tableName": "CalendarEntity",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `platformId` TEXT NOT NULL, `name` TEXT NOT NULL, `ownerName` TEXT NOT NULL, `ownerId` TEXT NOT NULL, `color` INTEGER NOT NULL, `enabled` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `platformId` TEXT NOT NULL, `name` TEXT NOT NULL, `ownerName` TEXT NOT NULL, `ownerId` TEXT NOT NULL, `color` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `syncEvents` INTEGER NOT NULL DEFAULT 1)",
         "fields": [
           {
             "fieldPath": "id",
@@ -805,6 +798,13 @@
             "columnName": "enabled",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "syncEvents",
+            "columnName": "syncEvents",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
           }
         ],
         "primaryKey": {
@@ -1092,7 +1092,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3094eed050c768aab8acddd964ec803c')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f8d6f4156f4d4645ca89a71d78787a4a')"
     ]
   }
 }
