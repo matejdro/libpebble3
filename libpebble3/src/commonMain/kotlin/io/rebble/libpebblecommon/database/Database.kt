@@ -37,6 +37,7 @@ import io.rebble.libpebblecommon.database.entity.VibePatternEntity
 import io.rebble.libpebblecommon.database.entity.WatchSettingsDao
 import io.rebble.libpebblecommon.database.entity.WatchSettingsEntity
 import io.rebble.libpebblecommon.database.entity.WatchSettingsSyncEntity
+import io.rebble.libpebblecommon.database.migration.MigrationTo27
 import kotlinx.coroutines.Dispatchers
 
 internal const val DATABASE_FILENAME = "libpebble3.db"
@@ -80,7 +81,6 @@ internal const val DATABASE_FILENAME = "libpebble3.db"
         AutoMigration(from = 23, to = 24),
         AutoMigration(from = 24, to = 25),
         AutoMigration(from = 25, to = 26),
-        AutoMigration(from = 26, to = 27),
     ],
     exportSchema = true,
 )
@@ -114,6 +114,7 @@ fun getRoomDatabase(ctx: AppContext): Database {
         .fallbackToDestructiveMigrationFrom(dropAllTables = true, 1, 2, 3, 4, 5, 6, 7, 8, 9)
         .setDriver(BundledSQLiteDriver())
         .setQueryCoroutineContext(Dispatchers.IO)
+        .addMigrations(MigrationTo27)
         .build()
 }
 
