@@ -19,14 +19,16 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven(url = "https://jitpack.io")
-        maven {
-            name = "GitHubPackagesSpeex"
-            url = uri("https://maven.pkg.github.com/coredevices/kotlin-speex")
-            credentials {
-                username = properties.getProperty("github.username") ?: System.getenv("GITHUB_ACTOR")
-                password = properties.getProperty("github.token") ?: System.getenv("GITHUB_TOKEN")
-            }
-        }
+        // We do not need Github-built speex in microPebble, so disable this to remove
+        // Github token requirement
+//        maven {
+//            name = "GitHubPackagesSpeex"
+//            url = uri("https://maven.pkg.github.com/coredevices/kotlin-speex")
+//            credentials {
+//                username = properties.getProperty("github.username") ?: System.getenv("GITHUB_ACTOR")
+//                password = properties.getProperty("github.token") ?: System.getenv("GITHUB_TOKEN")
+//            }
+//        }
     }
 }
 
@@ -35,10 +37,11 @@ rootProject.name = "libpebbleroot"
 include(":libpebble3")
 include(":blobdbgen")
 include(":blobannotations")
-include(":composeApp")
-include(":pebble")
-include(":util")
-include(":experimental")
+// We do not need the entire core app in the microPebble, so disable this to make build faster
+//include(":composeApp")
+//include(":pebble")
+//include(":util")
+//include(":experimental")
 
 // Include PebbleKit library until
 // it is stable enough to make a release
