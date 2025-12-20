@@ -42,12 +42,3 @@ include(":blobannotations")
 //include(":pebble")
 //include(":util")
 //include(":experimental")
-
-// Include PebbleKit library until
-// it is stable enough to make a release
-includeBuild("PebbleKitAndroid2") {
-    dependencySubstitution {
-        substitute(module("io.rebble.pebblekit2:server"))
-            .using(project(":server"))
-    }
-}
