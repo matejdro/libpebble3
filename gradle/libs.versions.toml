@@ -51,7 +51,7 @@ algolia = "3.36.0"
 coredevices-speex = "f3b9b07"
 cactus = "1.0.2-beta"
 paging = "3.4.0-alpha04"
-pebblekit = "510b3ead6e"
+pebblekit = "09f86ee72b"
 
 [plugins]
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
