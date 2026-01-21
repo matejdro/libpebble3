@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -66,13 +67,21 @@ enum class NotificationAppSort {
 
 @Composable
 fun NotificationsScreen(topBarParams: TopBarParams, nav: NavBarNav) {
+    LaunchedEffect(Unit) {
+        topBarParams.title("Notifications")
+        topBarParams.canGoBack(false)
+        topBarParams.searchAvailable(true)
+        topBarParams.actions {}
+    }
+
+    NotificationsScreenContent(topBarParams, nav)
+}
+
+@Composable
+fun NotificationsScreenContent(topBarParams: TopBarParams, nav: NavBarNav) {
     Box(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
         val viewModel = koinViewModel<NotificationScreenViewModel>()
         val pebbleFeatures = koinInject<PebbleFeatures>()
-
-        LaunchedEffect(Unit) {
-            topBarParams.title("Notifications")
-        }
 
         Column {
             if (pebbleFeatures.supportsNotificationFiltering()) {
@@ -128,9 +137,8 @@ fun NotificationAppCard(
     clickable: Boolean,
     showBadge: Boolean,
 ) {
-    val reallyClickable = clickable && platform == Platform.Android
     val app = entry.app
-    val modifier = if (reallyClickable) {
+    val modifier = if (clickable) {
         Modifier.clickable {
             nav.navigateTo(PebbleNavBarRoutes.NotificationAppRoute(app.packageName))
         }
@@ -150,17 +158,25 @@ fun NotificationAppCard(
         },
         headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(app.name, fontSize = 17.sp)
+                Text(text = app.name,
+                    fontSize = 17.sp,
+                    modifier = Modifier.weight(1f, fill = false),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 if (entry.count > 0) {
                     Badge(modifier = Modifier.padding(horizontal = 7.dp)) {
-                        Text("${entry.count}")
+                        Text(
+                            text = "${entry.count}",
+                            maxLines = 1,
+                        )
                     }
                 }
             }
         },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (reallyClickable) {
+                if (clickable) {
                     Icon(
                         Icons.Default.MoreHoriz,
                         "Details",

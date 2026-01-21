@@ -1,7 +1,9 @@
 package coredevices.pebble.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -41,6 +43,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.parameter.parametersOf
+import kotlin.uuid.Uuid
 
 class AppStoreCollectionScreenViewModel(
     val libPebble: LibPebble,
@@ -99,14 +102,24 @@ class AppStoreCollectionScreenViewModel(
             )?.let { newApps ->
                 loading.value = false
                 logger.d { "Fetched ${newApps.data.size} more apps for collection $path (offset = $skip)" }
-                loadedApps.addAll(newApps.data.mapNotNull {
-                    it.asCommonApp(
-                        watchType.await(),
-                        platform,
-                        appstoreService.await().source,
-                        categories.await()
-                    )
-                })
+
+                // Don't add any apps with duplicate UUIDs
+                val existingUuids = loadedApps.map { it.uuid }.toSet()
+                // Also deduplicate within the incoming data itself
+                val newCommonApps = newApps.data
+                    .distinctBy { it.uuid } // Remove duplicates within this response
+                    .filter {
+                        !existingUuids.contains(Uuid.parse(it.uuid))
+                    }.mapNotNull {
+                        it.asCommonApp(
+                            watchType.await(),
+                            platform,
+                            appstoreService.await().source,
+                            categories.await()
+                        )
+                    }
+                loadedApps.addAll(newCommonApps)
+
                 if (newApps.data.isEmpty()) {
                     logger.d { "Reached max apps for collection $path" }
                     reachedMax.value = true
@@ -166,6 +179,9 @@ fun AppStoreCollectionScreen(
         topBarParams.canGoBack(true)
         topBarParams.actions {}
         topBarParams.searchAvailable(false)
+        topBarParams.goBack.collect {
+            navBarNav.goBack()
+        }
     }
     Box(modifier = Modifier.background(MaterialTheme.colorScheme.background).fillMaxSize()) {
         if (loading && apps.isEmpty()) {
@@ -174,13 +190,23 @@ fun AppStoreCollectionScreen(
             )
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 132.dp)
+                columns = GridCells.FixedSize(120.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(4.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                appStoreGridItems(
-                    apps = apps,
-                    navBarNav = navBarNav,
-                    topBarParams = topBarParams,
-                )
+                items(
+                    items = apps,
+                    key = { it.uuid }
+                ) { entry ->
+                    NativeWatchfaceCard(
+                        entry,
+                        navBarNav,
+                        false,
+                        width = 120.dp,
+                        topBarParams = topBarParams,
+                    )
+                }
                 if (!reachedMax) {
                     item(span = { GridItemSpan(maxLineSpan) }, contentType = "load_more") {
                         Box(
@@ -210,23 +236,5 @@ fun AppStoreCollectionScreen(
                 }
             }
         }
-    }
-}
-
-fun LazyGridScope.appStoreGridItems(
-    apps: List<CommonApp>,
-    navBarNav: NavBarNav,
-    topBarParams: TopBarParams,
-) {
-    items(
-        items = apps,
-        key = { it.uuid }
-    ) { entry ->
-        NativeWatchfaceCard(
-            entry,
-            navBarNav,
-            false,
-            topBarParams,
-        )
     }
 }

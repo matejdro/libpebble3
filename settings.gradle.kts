@@ -19,16 +19,6 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven(url = "https://jitpack.io")
-        // We do not need Github-built speex in microPebble, so disable this to remove
-        // Github token requirement
-//        maven {
-//            name = "GitHubPackagesSpeex"
-//            url = uri("https://maven.pkg.github.com/coredevices/kotlin-speex")
-//            credentials {
-//                username = properties.getProperty("github.username") ?: System.getenv("GITHUB_ACTOR")
-//                password = properties.getProperty("github.token") ?: System.getenv("GITHUB_TOKEN")
-//            }
-//        }
     }
 }
 

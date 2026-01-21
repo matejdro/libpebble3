@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,8 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -27,11 +30,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.AccessAlarm
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MonitorHeart
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.UploadFile
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -44,8 +52,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.carousel.CarouselState
-import androidx.compose.material3.carousel.HorizontalUncontainedCarousel
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,21 +61,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.coerceAtMost
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -136,7 +138,7 @@ enum class LockerTab(val title: StringResource) {
 }
 
 const val REBBLE_LOGIN_URI = "https://boot.rebble.io"
-private const val LOCKER_UI_LOAD_LIMIT = 100
+const val LOCKER_UI_LOAD_LIMIT = 100
 private val logger = Logger.withTag("LockerScreen")
 
 class LockerViewModel(
@@ -246,9 +248,12 @@ fun LockerScreen(
             topBarParams.title(title)
             topBarParams.canGoBack(false)
             if (coreConfig.useNativeAppStore) {
-                isRefreshing = true
-                viewModel.refreshStore(type, watchType).invokeOnCompletion {
-                    isRefreshing = false
+                if (viewModel.storeHome.value.isEmpty()) {
+                    logger.v { "refreshing store" }
+                    isRefreshing = true
+                    viewModel.refreshStore(type, watchType).invokeOnCompletion {
+                        isRefreshing = false
+                    }
                 }
             }
         }
@@ -279,29 +284,36 @@ fun LockerScreen(
                 }
             }
         }
-        val filteredLockerEntries by lockerQuery.collectAsState(emptyList())
-        val onWatch by remember(filteredLockerEntries, watchType) {
+        val le by lockerQuery.collectAsState(null)
+        val lockerEntries = le
+        if (lockerEntries == null) {
+            // Don't render the screen at all until we've read the locker from db
+            // (otherwise scrolling can get really confused while it's momentarily empty)
+            return
+        }
+        val onWatch by remember(lockerEntries, watchType) {
             derivedStateOf {
-                filteredLockerEntries.filter {
-                    it.isSynced() && it.findCompatiblePlatform(
-                        watchType
-                    ).isCompatible()
+                lockerEntries.filter {
+                    it.isSynced() &&
+                            it.findCompatiblePlatform(watchType).isCompatible() &&
+                            it.showOnMainLockerScreen()
                 }.map { it.asCommonApp(watchType) }
             }
         }
-        val notOnWatch by remember(filteredLockerEntries, watchType) {
+        val notOnWatch by remember(lockerEntries, watchType) {
             derivedStateOf {
-                filteredLockerEntries.filter {
-                    !it.isSynced() && it.findCompatiblePlatform(
-                        watchType
-                    ).isCompatible()
+                lockerEntries.filter {
+                    !it.isSynced() &&
+                            it.findCompatiblePlatform(watchType).isCompatible() &&
+                            it.showOnMainLockerScreen()
                 }.map { it.asCommonApp(watchType) }
             }
         }
-        val notCompatible by remember(filteredLockerEntries, watchType) {
+        val notCompatible by remember(lockerEntries, watchType) {
             derivedStateOf {
-                filteredLockerEntries.filter {
-                    !it.findCompatiblePlatform(watchType).isCompatible()
+                lockerEntries.filter {
+                    !it.findCompatiblePlatform(watchType).isCompatible() &&
+                            it.showOnMainLockerScreen()
                 }.map { it.asCommonApp(watchType) }
             }
         }
@@ -326,18 +338,13 @@ fun LockerScreen(
                 }
             },
         ) {
-            var itemWidth by remember { mutableStateOf(0.dp) } // need to keep this even if we return from search to reduce jank
             if (topBarParams.searchState.query.isNotEmpty() && coreConfig.useNativeAppStore) {
                 val results by viewModel.storeSearchResults.combine(lockerQuery) { store, locker ->
                     val lockerApps = locker.map { it.asCommonApp(watchType) }
-                    if (coreConfig.useNativeAppStore) {
-                        lockerApps.filter {
-                            it.type == searchType
-                        } + store.filter { a ->
-                            !lockerApps.any { b -> a.uuid == b.uuid }
-                        }
-                    } else {
-                        lockerApps
+                    lockerApps.filter {
+                        it.type == searchType
+                    } + store.filter { a ->
+                        !lockerApps.any { b -> a.uuid == b.uuid }
                     }
                 }.collectAsState(initial = emptyList())
 
@@ -386,28 +393,10 @@ fun LockerScreen(
                     }
                 }) {
                     if (coreConfig.useNativeAppStore) {
-                        val density = LocalDensity.current
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .onSizeChanged { (width, height) ->
-                                    itemWidth = with(density) {
-                                        (width.toDp() / 3).coerceAtMost(132.dp) - 14.dp
-                                    }
-                                }
                         ) {
-                            if (loggedIn == null) {
-                                item(contentType = "login_button") {
-                                    PebbleElevatedButton(
-                                        text = "Login to Rebble to see App Store and Locker",
-                                        onClick = {
-                                            uriHandler.openUri(REBBLE_LOGIN_URI)
-                                        },
-                                        primaryColor = true,
-                                        modifier = Modifier.padding(5.dp).align(Alignment.Center),
-                                    )
-                                }
-                            }
                             @Composable
                             fun Carousel(
                                 title: String,
@@ -420,13 +409,16 @@ fun LockerScreen(
                                     navBarNav = navBarNav,
                                     runningApp = runningApp,
                                     topBarParams = topBarParams,
-                                    itemWidth = itemWidth,
-                                    onClick = onClick
+                                    onClick = onClick,
                                 )
                             }
-                            item(contentType = "app_carousel") { Carousel("On My Watch", onWatch) }
+                            item(contentType = "app_carousel", key = "collection_on-my-watch") { Carousel("On My Watch", onWatch, onClick = {
+                                navBarNav.navigateTo(PebbleNavBarRoutes.MyCollectionRoute(appType = type.code, myCollectionType = MyCollectionType.OnWatch.code))
+                            }) }
 
-                            item(contentType = "app_carousel") { Carousel("Recent", notOnWatch) }
+                            item(contentType = "app_carousel", key = "collection_recent") { Carousel("Recent", notOnWatch, onClick = {
+                                navBarNav.navigateTo(PebbleNavBarRoutes.MyCollectionRoute(appType = type.code, myCollectionType = MyCollectionType.Recent.code))
+                            }) }
 
                             val storeHomes by viewModel.storeHome
                             // TODO categories
@@ -434,28 +426,27 @@ fun LockerScreen(
                             storeHomes.forEach { (source, home) ->
                                 home?.let {
                                     if (storeHomes.size > 1) {
-                                        item(contentType = "source_title") {
+                                        item(contentType = "source_title", key = "source_${source.id}") {
                                             Text(source.title, modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp), style = MaterialTheme.typography.headlineMedium)
                                         }
                                     }
-                                    items(home.collections.size, contentType = { "app_carousel_collection" }) {
-                                        val collection = home.collections[it]
+                                    items(home.collections, contentType = { "app_carousel_collection" }, key = { "collection_${source.id}_${it.slug}" }) { collection ->
                                         val collectionApps =
                                             remember(
                                                 home,
                                                 collection,
                                                 watchType,
-                                                filteredLockerEntries
+                                                lockerEntries
                                             ) {
                                                 collection.applicationIds.mapNotNull { appId ->
                                                     home.applications.find { app ->
-                                                        app.id == appId && !filteredLockerEntries.any {
+                                                        app.id == appId && !lockerEntries.any {
                                                             it.properties.id == Uuid.parse(
                                                                 app.uuid
                                                             )
                                                         }
                                                     }?.asCommonApp(watchType, platform, source, home.categories)
-                                                }
+                                                }.distinctBy { it.uuid }
                                             }
                                         Carousel(collection.name, collectionApps, onClick = {
                                             navBarNav.navigateTo(
@@ -471,7 +462,7 @@ fun LockerScreen(
                                 }
                             }
 
-                            item(contentType = "app_carousel") { Carousel("Not Compatible", notCompatible) }
+                            item(contentType = "app_carousel", key = "not_compatible") { Carousel("Not Compatible", notCompatible) }
                         }
                     } else {
                         LazyVerticalGrid(
@@ -552,7 +543,7 @@ fun SearchResultsList(
     modifier: Modifier = Modifier,
 ) {
     val storeApps = results.filter { it.commonAppType is CommonAppType.Store }
-    val lockerApps = results.filter { it.commonAppType is CommonAppType.Locker }
+    val lockerApps = results.filter { it.commonAppType is CommonAppType.Locker || it.commonAppType is CommonAppType.System }
     val scope = rememberCoroutineScope()
     LazyColumn(modifier) {
         if (lockerApps.isNotEmpty()) {
@@ -562,8 +553,6 @@ fun SearchResultsList(
             ) { entry ->
                 NativeWatchfaceListItem(
                     entry,
-                    navBarNav,
-                    topBarParams,
                     onClick = {
                         navBarNav.navigateTo(
                             PebbleNavBarRoutes.LockerAppRoute(
@@ -590,8 +579,6 @@ fun SearchResultsList(
             ) { entry ->
                 NativeWatchfaceListItem(
                     entry,
-                    navBarNav,
-                    topBarParams,
                     onClick = {
                         scope.launch {
                             val sources = withContext(Dispatchers.IO) { pebbleWebServices.searchUuidInSources(entry.uuid) }
@@ -620,6 +607,13 @@ fun SearchResultsList(
     }
 }
 
+fun LockerWrapper.showOnMainLockerScreen(): Boolean = when (this) {
+    is LockerWrapper.NormalApp -> true
+    // Don't show system apps here (they'd always take up all the horizontal space). Show system
+    // watchfaces.
+    is LockerWrapper.SystemApp -> properties.type == AppType.Watchface
+}
+
 @Composable
 fun AppCarousel(
     title: String,
@@ -627,7 +621,6 @@ fun AppCarousel(
     navBarNav: NavBarNav,
     runningApp: Uuid?,
     topBarParams: TopBarParams,
-    itemWidth: Dp = 132.dp,
     onClick: (() -> Unit)? = null,
 ) {
     if (items.isEmpty()) {
@@ -647,32 +640,23 @@ fun AppCarousel(
                 Icon(Icons.AutoMirrored.Default.ArrowForward, contentDescription = "See all", modifier = Modifier)
             }
         }
-        // Do this manually rather than using rememberCarouselState - that breaks when we change the
-        // size.
-        val state = rememberSaveable(items.size, saver = CarouselState.Saver) {
-            CarouselState(
-                currentItem = 0,
-                currentItemOffsetFraction = 0F,
-                itemCount = { items.size },
-            )
-        }
-        HorizontalUncontainedCarousel(
-            state = state,
+        LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight()
                 .padding(vertical = 6.dp),
-            itemWidth = itemWidth,
-            itemSpacing = 8.dp,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(horizontal = 10.dp)
-        ) { i ->
-            val entry = items.getOrNull(i) ?: return@HorizontalUncontainedCarousel
-            NativeWatchfaceCard(
-                entry,
-                navBarNav,
-                runningApp == entry.uuid,
-                topBarParams,
-            )
+        ) {
+            items(items, key = { it.uuid } ) { entry ->
+                NativeWatchfaceCard(
+                    entry,
+                    navBarNav,
+                    runningApp == entry.uuid,
+                    width = 100.dp,
+                    topBarParams = topBarParams,
+                )
+            }
         }
     }
 }
@@ -857,7 +841,8 @@ fun StoreApplication.asCommonApp(watchType: WatchType, platform: Platform, sourc
             storeSource = source,
             developerId = developerId,
             sourceLink = this.source,
-            categorySlug = categories?.firstOrNull { it.id == categoryId }?.slug
+            categorySlug = categories?.firstOrNull { it.id == categoryId }?.slug,
+            storeApp = this,
         ),
         type = appType,
         category = category,
@@ -867,7 +852,19 @@ fun StoreApplication.asCommonApp(watchType: WatchType, platform: Platform, sourc
         isCompatible = compatibility.isCompatible(watchType, platform),
         hearts = hearts,
         description = description,
-        isNativelyCompatible = true, // TODO
+        isNativelyCompatible = when (watchType) {
+            // Emery is the only platform where "compatible" apps can be used but are
+            // "suboptimal" (need scaling). Enable flagging that.
+            WatchType.EMERY -> {
+                when {
+                    // If store doesn't report binary info, mark as compatible
+                    hardwarePlatforms == null -> true
+                    // If store has binary info, only natively compatible if there is a matching binary
+                    else ->hardwarePlatforms.any { it.name == watchType.codename && it.pebbleProcessInfoFlags != null }
+                }
+            }
+            else -> true
+        },
     )
 }
 
@@ -882,7 +879,7 @@ fun StoreSearchResult.asCommonApp(watchType: WatchType, platform: Platform, sour
         developerName = author,
         uuid = Uuid.parse(uuid),
         androidCompanion = null,
-        commonAppType = CommonAppType.Store(storedId = id, storeSource = source, developerId = null, sourceLink = null, categorySlug = null),
+        commonAppType = CommonAppType.Store(storedId = id, storeSource = source, developerId = null, sourceLink = null, categorySlug = null, storeApp = null),
         type = appType,
         category = category,
         version = null,
@@ -893,7 +890,7 @@ fun StoreSearchResult.asCommonApp(watchType: WatchType, platform: Platform, sour
         isCompatible = compatibility.isCompatible(watchType, platform),
         hearts = hearts,
         description = description,
-        isNativelyCompatible = true, // TODO
+        isNativelyCompatible = true, // TODO (but OK for now)
     )
 }
 
@@ -932,6 +929,7 @@ sealed class CommonAppType {
     ) : CommonAppType(), CommonAppTypeLocal//, CommonAppTypeFromStore
 
     data class Store(
+        val storeApp: StoreApplication?,
         val storedId: String,
         val storeSource: AppstoreSource,
         val developerId: String?,
@@ -950,10 +948,12 @@ fun NativeWatchfaceCard(
     entry: CommonApp,
     navBarNav: NavBarNav,
     running: Boolean,
+    width: Dp,
     topBarParams: TopBarParams,
 ) {
     Card(
         modifier = Modifier.padding(7.dp)
+            .width(width)
             .clickable {
                 navBarNav.navigateTo(
                     PebbleNavBarRoutes.LockerAppRoute(
@@ -980,30 +980,26 @@ fun NativeWatchfaceCard(
                         modifier = imageModifier,
                         size = 116.dp,
                     )
-                    val platform: Platform = koinInject()
-                    if (platform == Platform.Android) {
-                        val companionApp = entry.androidCompanion
-                        if (companionApp != null) {
-                            IconButton(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(8.dp)
-                                    .size(40.dp),
-                                onClick = {
-                                    topBarParams.showSnackbar("Android companions apps not supported yet")
-                                },
-                            ) {
-                                Icon(
-                                    Icons.Filled.Warning,
-                                    contentDescription = "Android companions apps not supported yet",
-                                    modifier = Modifier.fillMaxSize(),
-                                    tint = coreOrange,
-                                )
-                            }
+                    if (!entry.isNativelyCompatible) {
+                        IconButton(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(7.dp)
+                                .size(30.dp),
+                            onClick = {
+                                topBarParams.showSnackbar("Not natively compatible, but can be scaled")
+                            },
+                        ) {
+                            Icon(
+                                Icons.Filled.Info,
+                                contentDescription = "Not natively compatible, but can be scaled",
+                                modifier = Modifier.fillMaxSize(),
+                                tint = coreOrange,
+                            )
                         }
                     }
                 } else {
-                    Box(modifier = imageModifier, contentAlignment = Alignment.Center) {
+                    Box(modifier = imageModifier.size(116.dp), contentAlignment = Alignment.Center) {
                         Text("Not Compatible", fontSize = 15.sp, textAlign = TextAlign.Center)
                     }
                 }
@@ -1117,8 +1113,6 @@ private fun LegacyWatchfaceCard(
 @Composable
 fun NativeWatchfaceListItem(
     entry: CommonApp,
-    navBarNav: NavBarNav,
-    topBarParams: TopBarParams,
     onClick: () -> Unit,
 ) {
     ListItem(
@@ -1188,7 +1182,8 @@ fun AppImage(entry: CommonApp, modifier: Modifier, size: Dp) {
             AsyncImage(
                 model = req,
                 contentDescription = null,
-                modifier = modifier.requiredHeight(size),
+                modifier = modifier.requiredHeight(size)
+                    .widthIn(max = size),
                 placeholder = placeholder,
                 onError = { e ->
                     logger.w(e.result.throwable) { "Error loading app image for ${entry.uuid}" }
@@ -1198,7 +1193,13 @@ fun AppImage(entry: CommonApp, modifier: Modifier, size: Dp) {
 
         is CommonAppType.System -> {
             val icon = when (entry.commonAppType.app) {
-                SystemApps.Calendar -> Icons.Default.DateRange
+                SystemApps.Settings -> Icons.Default.Settings
+                SystemApps.Music -> Icons.AutoMirrored.Filled.QueueMusic
+                SystemApps.Notifications -> Icons.Default.NotificationsActive
+                SystemApps.Alarms -> Icons.Default.AccessAlarm
+                SystemApps.Workout -> Icons.AutoMirrored.Filled.DirectionsRun
+                SystemApps.Watchfaces -> Icons.Default.Watch
+                SystemApps.Health -> Icons.Default.MonitorHeart
             }
             Icon(icon, contentDescription = null, modifier = modifier.size(size))
         }

@@ -47,11 +47,19 @@ class CoreConfigFlow(val flow: StateFlow<CoreConfig>) {
 
 private const val SETTINGS_KEY = "coreapp.config"
 
+enum class WeatherUnit(val code: String) {
+    Metric("m"),
+    Imperial("e"),
+}
+
 @Serializable
 data class CoreConfig(
     val useNativeAppStore: Boolean = false,
     val ignoreOtherPebbleApps: Boolean = false,
     val disableCompanionDeviceManager: Boolean = false,
-    val weatherPins: Boolean = false,
+    val weatherPinsV2: Boolean = true,
     val disableFirmwareUpdateNotifications: Boolean = false,
+    val enableIndex: Boolean = false,
+    val weatherUnits: WeatherUnit = WeatherUnit.Metric,
+    val showAllSettingsTab: Boolean = false,
 )

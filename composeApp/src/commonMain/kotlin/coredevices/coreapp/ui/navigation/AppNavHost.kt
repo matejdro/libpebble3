@@ -1,5 +1,6 @@
 package coredevices.coreapp.ui.navigation
 
+import BugReportButton
 import CommonRoutes
 import CoreNav
 import CoreRoute
@@ -10,7 +11,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
+import androidx.navigation.NavDeepLink
 import androidx.navigation.NavHostController
+import androidx.navigation.NavUri
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
@@ -45,8 +48,16 @@ fun AppNavHost(navController: NavHostController, startDestination: Any) {
                 // Now that we know the graph is set up, start collecting deep links
                 scope.launch {
                     deepLinks.navigateToDeepLink.collect { route ->
-                        logger.d { "navigateToDeepLink $it" }
-                        navController.navigate(route)
+                        logger.d { "navigateToDeepLink $route" }
+                        try {
+                            if (route is NavUri) {
+                                navController.navigate(route)
+                            } else {
+                                navController.navigate(route)
+                            }
+                        } catch (e: IllegalArgumentException) {
+                            logger.w(e) { "Failed to navigate to $route" }
+                        }
                     }
                 }
             }
@@ -70,16 +81,17 @@ fun AppNavHost(navController: NavHostController, startDestination: Any) {
         }
     }
     val experimentalDevices: ExperimentalDevices = koinInject()
-    val experimentalRoute = if (experimentsEnabled()) {
-        experimentalDevices.home()
-    } else {
-        null
-    }
     NavHost(navController, startDestination = startDestination) {
         experimentalDevices.addExperimentalRoutes(this, coreNav)
-        addPebbleRoutes(coreNav, experimentalRoute)
+        addPebbleRoutes(coreNav, indexScreen = { topBarParams, navBarNav ->
+            experimentalDevices.IndexScreen(coreNav, topBarParams)
+        })
         if (CommonBuildKonfig.QA) {
-            composable<CommonRoutes.BugReport> {
+            composable<CommonRoutes.BugReport>(
+                deepLinks = listOf(
+                    NavDeepLink("pebblecore://deep-link/bug-report?pebble={pebble}")
+                )
+            ) {
                 val route: CommonRoutes.BugReport = it.toRoute()
                 BugReportScreen(
                     coreNav = coreNav,
@@ -99,7 +111,11 @@ fun AppNavHost(navController: NavHostController, startDestination: Any) {
                     coreNav = coreNav,
                 )
             }
-            composable<CommonRoutes.ViewBugReportRoute> {
+            composable<CommonRoutes.ViewBugReportRoute>(
+                deepLinks = listOf(
+                    NavDeepLink("pebblecore://deep-link/view-bug-report?conversationId={conversationId}")
+                )
+            ) {
                 val route: CommonRoutes.ViewBugReportRoute = it.toRoute()
                 ViewBugReportScreen(
                     coreNav = coreNav,

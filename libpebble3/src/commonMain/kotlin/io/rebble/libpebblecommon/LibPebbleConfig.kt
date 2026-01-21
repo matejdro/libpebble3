@@ -59,6 +59,7 @@ class LibPebbleConfigFlow(val flow: StateFlow<LibPebbleConfig>) {
 data class WatchConfig(
     val multipleConnectedWatchesSupported: Boolean = false,
     val lockerSyncLimit: Int = 25,
+    val calendarPins: Boolean = true,
     val calendarReminders: Boolean = true,
     val calendarShowDeclinedEvents: Boolean = false,
     val ignoreMissingPrf: Boolean = false,
@@ -101,6 +102,7 @@ data class NotificationConfig(
     val obfuscateContent: Boolean = true,
     val sendLocalOnlyNotifications: Boolean = false,
     val storeNotifiationsForDays: Int = 7,
+    val storeDisabledNotifications: Boolean = false,
     val addShowsUserInterfaceActions: Boolean = false,
     val alwaysSendNotifications: Boolean = true,
     /**

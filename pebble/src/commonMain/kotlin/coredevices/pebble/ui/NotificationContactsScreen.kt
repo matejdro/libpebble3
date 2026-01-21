@@ -49,6 +49,7 @@ import coredevices.pebble.rememberLibPebble
 import coredevices.ui.ShowOnceTooltipBox
 import io.rebble.libpebblecommon.database.dao.ContactWithCount
 import io.rebble.libpebblecommon.database.entity.MuteState
+import kotlinx.coroutines.flow.first
 import org.koin.compose.viewmodel.koinViewModel
 
 class ContactsViewModel(
@@ -72,12 +73,6 @@ fun NotificationContactsScreen(topBarParams: TopBarParams, nav: NavBarNav) {
         ).flow
     }
     Box(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
-        LaunchedEffect(Unit) {
-            topBarParams.searchAvailable(true)
-            topBarParams.actions {
-            }
-            topBarParams.canGoBack(false)
-        }
         val contacts = items.collectAsLazyPagingItems()
         Column {
             Row(

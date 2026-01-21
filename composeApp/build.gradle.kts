@@ -117,6 +117,7 @@ kotlin {
                 }.standardOutput.asText.get().trim()
                 linkerOpts(
                     "-framework", "LibPebbleSwift", "-F"+dir.absolutePath,
+                    "-framework", "CoreML",
                     "-L$xcodeDir/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphoneos"
                 )
             }
@@ -212,6 +213,8 @@ kotlin {
             implementation(project(":util"))
             implementation(project(":experimental"))
             implementation(libs.kmpnotifier)
+            implementation(libs.kmpio)
+            implementation(project(":libpebble3"))
         }
     }
 }
