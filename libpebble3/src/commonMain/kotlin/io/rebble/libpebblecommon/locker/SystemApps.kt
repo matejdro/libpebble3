@@ -18,4 +18,5 @@ enum class SystemApps(
     Health(SystemAppIDs.HEALTH_APP_UUID, "Health", AppType.Watchapp, WatchType.entries, defaultOrder = -6),
     Workout(SystemAppIDs.WORKOUT_APP_UUID, "Workout", AppType.Watchapp, WatchType.entries, defaultOrder = -5),
     Watchfaces(SystemAppIDs.WATCHFACES_APP_UUID, "Watchfaces", AppType.Watchapp, WatchType.entries, defaultOrder = -4),
+    Timeline(SystemAppIDs.TIMELINE_MENU_ENTRY_UUID, "Timeline", AppType.Watchapp, WatchType.entries, defaultOrder = -3),
 }
