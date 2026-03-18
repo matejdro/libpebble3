@@ -24,7 +24,7 @@ class PebbleDeviceFactory {
         scanResult: PebbleScanResult?,
         knownWatchProperties: KnownWatchProperties?,
         connectGoal: Boolean,
-        firmwareUpdateAvailable: FirmwareUpdateCheckResult?,
+        firmwareUpdateAvailable: FirmwareUpdateCheckState,
         firmwareUpdateState: FirmwareUpdateStatus,
         bluetoothState: BluetoothState,
         lastFirmwareUpdateState: FirmwareUpdateStatus,
@@ -244,7 +244,7 @@ internal class RealConnectedPebbleDevice(
     private val activeDevice: ActiveDevice,
     private val services: ConnectedPebble.Services,
     override val firmwareUpdateState: FirmwareUpdateStatus,
-    override val firmwareUpdateAvailable: FirmwareUpdateCheckResult?,
+    override val firmwareUpdateAvailable: FirmwareUpdateCheckState,
     override val batteryLevel: Int?,
     override val languagePackInstallState: LanguagePackInstallState,
     override val installedLanguagePack: InstalledLanguagePack?,
@@ -264,7 +264,8 @@ internal class RealConnectedPebbleDevice(
     ConnectedPebble.CompanionAppControl by services.companionAppControl,
     ConnectedPebble.DevConnection by services.devConnection,
     ConnectedPebble.Screenshot by services.screenshot,
-    ConnectedPebble.LanguageInstall by services.language {
+    ConnectedPebble.LanguageInstall by services.language,
+    ConnectedPebble.Health by services.health {
 
     override fun toString(): String =
         "ConnectedPebbleDevice: $knownDevice $watchInfo batteryLevel=$batteryLevel firmwareUpdateState=$firmwareUpdateState firmwareUpdateAvailable=$firmwareUpdateAvailable runningApp=${services.appRunState.runningApp.value}"
@@ -276,7 +277,7 @@ internal class RealConnectedPebbleDeviceInRecovery(
     private val activeDevice: ActiveDevice,
     private val services: ConnectedPebble.PrfServices,
     override val firmwareUpdateState: FirmwareUpdateStatus,
-    override val firmwareUpdateAvailable: FirmwareUpdateCheckResult?,
+    override val firmwareUpdateAvailable: FirmwareUpdateCheckState,
     override val batteryLevel: Int?,
 ) : ConnectedPebbleDeviceInRecovery,
     KnownPebbleDevice by knownDevice,

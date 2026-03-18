@@ -6,7 +6,9 @@ import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
+import androidx.room.TypeConverters
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import io.rebble.libpebblecommon.database.RoomTypeConverters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 
@@ -16,21 +18,28 @@ internal const val CORE_DATABASE_FILENAME = "coreapp.db"
     entities = [
         HeartbeatStateEntity::class,
         AppstoreSource::class,
-        AppstoreCollection::class
+        AppstoreCollection::class,
+        WeatherLocationEntity::class,
+        HeartEntity::class,
     ],
-    version = 4,
+    version = 6,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4),
+        AutoMigration(from = 4, to = 5),
+        AutoMigration(from = 5, to = 6),
     ],
     exportSchema = true,
 )
 @ConstructedBy(CoreDatabaseConstructor::class)
+@TypeConverters(RoomTypeConverters::class)
 abstract class CoreDatabase : RoomDatabase() {
     abstract fun analyticsDao(): HeartbeatStateDao
     abstract fun appstoreSourceDao(): AppstoreSourceDao
     abstract fun appstoreCollectionDao(): AppstoreCollectionDao
+    abstract fun weatherLocationDao(): WeatherLocationDao
+    abstract fun heartsDao(): HeartsDao
 }
 
 @Suppress("NO_ACTUAL_FOR_EXPECT")

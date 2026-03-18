@@ -1,6 +1,11 @@
 package io.rebble.libpebblecommon.metadata
 
 import co.touchlab.kermit.Logger
+import io.rebble.libpebblecommon.LibPebbleConfig
+import io.rebble.libpebblecommon.LibPebbleConfigFlow
+import io.rebble.libpebblecommon.di.LibPebbleCoroutineScope
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializer
 import kotlinx.serialization.descriptors.PrimitiveKind
@@ -9,7 +14,7 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
-enum class WatchHardwarePlatform(val protocolNumber: UByte, val watchType: WatchType, val revision: String) {
+enum class WatchHardwarePlatform(val protocolNumber: UByte, private val _watchType: WatchType, val revision: String) {
     UNKNOWN(0u, WatchType.BASALT, "unknown"),
     PEBBLE_ONE_EV_1(1u, WatchType.APLITE, "ev1"),
     PEBBLE_ONE_EV_2(2u, WatchType.APLITE, "ev2"),
@@ -33,8 +38,8 @@ enum class WatchHardwarePlatform(val protocolNumber: UByte, val watchType: Watch
     CORE_OBELIX_EVT(16u, WatchType.EMERY, "obelix_evt"),
     CORE_OBELIX_DVT(17u, WatchType.EMERY, "obelix_dvt"),
     CORE_OBELIX_PVT(18u, WatchType.EMERY, "obelix_pvt"),
-    CORE_GETAFIX_EVT(19u, WatchType.CHALK, "getafix_evt"),
-    CORE_GETAFIX_DVT(20u, WatchType.CHALK, "getafix_dvt"),
+    CORE_GETAFIX_EVT(19u, WatchType.GABBRO, "getafix_evt"),
+    CORE_GETAFIX_DVT(20u, WatchType.GABBRO, "getafix_dvt"),
     PEBBLE_SILK_BIGBOARD(250u, WatchType.DIORITE, "silk_bb"),
     PEBBLE_SILK_BIGBOARD_2_PLUS(248u, WatchType.DIORITE, "silk_bb2"),
     PEBBLE_ROBERT_EVT(13u, WatchType.EMERY, "robert_evt"),
@@ -44,7 +49,15 @@ enum class WatchHardwarePlatform(val protocolNumber: UByte, val watchType: Watch
     CORE_OBELIX_BIGBOARD_2(243u, WatchType.EMERY, "obelix_bb2"),
     ;
 
+    val watchType: WatchType
+        get() = when (this) {
+            UNKNOWN -> unknownWatchTypePlatform
+            else -> _watchType
+        }
+
     companion object {
+        private var unknownWatchTypePlatform: WatchType = WatchType.EMERY
+
         fun fromProtocolNumber(number: UByte): WatchHardwarePlatform {
             return entries.firstOrNull { it.protocolNumber == number } ?: UNKNOWN.also {
                 Logger.d { "unknown hardware revision: $number" }
@@ -55,6 +68,17 @@ enum class WatchHardwarePlatform(val protocolNumber: UByte, val watchType: Watch
             if (revision == "unk") return UNKNOWN
             return entries.firstOrNull() { it.revision == revision } ?: UNKNOWN.also {
                 Logger.d { "unknown hardware revision: $revision" }
+            }
+        }
+
+        fun init(
+            libPebbleCoroutineScope: LibPebbleCoroutineScope,
+            libPebbleConfigFlow: StateFlow<LibPebbleConfig>,
+        ) {
+            libPebbleCoroutineScope.launch {
+                libPebbleConfigFlow.collect {
+                    unknownWatchTypePlatform = it.watchConfig.unknownWatchTypePlatform
+                }
             }
         }
     }

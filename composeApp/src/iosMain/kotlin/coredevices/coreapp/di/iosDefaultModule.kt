@@ -3,22 +3,31 @@ package coredevices.coreapp.di
 import CoreAppVersion
 import PlatformContext
 import PlatformShareLauncher
-import coredevices.coreapp.RealGoogleAuthUtil
+import coredevices.ExperimentalDevices
+import coredevices.coreapp.auth.RealAppleAuthUtil
+import coredevices.coreapp.auth.RealGithubAuthUtil
+import coredevices.coreapp.auth.RealGoogleAuthUtil
 import coredevices.coreapp.util.AppUpdate
 import coredevices.coreapp.util.IosAppUpdate
 import coredevices.pebble.PebbleIosDelegate
+import coredevices.util.auth.AppleAuthUtil
 import coredevices.util.CompanionDevice
-import coredevices.util.GoogleAuthUtil
+import coredevices.util.CoreConfigFlow
+import coredevices.util.auth.GoogleAuthUtil
 import coredevices.util.IOSPlatform
 import coredevices.util.IosCompanionDevice
 import coredevices.util.IosPermissionRequester
 import coredevices.util.PermissionRequester
 import coredevices.util.Platform
 import coredevices.util.RequiredPermissions
+import coredevices.util.auth.GitHubAuthUtil
+import coredevices.util.models.ModelDownloadManager
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.darwin.Darwin
 import io.rebble.libpebblecommon.connection.AppContext
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
 import org.koin.dsl.module
@@ -27,6 +36,8 @@ import kotlin.time.DurationUnit
 
 val iosDefaultModule = module {
     singleOf(::RealGoogleAuthUtil) bind GoogleAuthUtil::class
+    singleOf(::RealAppleAuthUtil) bind AppleAuthUtil::class
+    singleOf(::RealGithubAuthUtil) bind GitHubAuthUtil::class
     singleOf(::PlatformShareLauncher)
     factory { params ->
         Darwin.create {
@@ -49,10 +60,13 @@ val iosDefaultModule = module {
     }
     single {
         val pebbleDelegate = get<PebbleIosDelegate>()
+        val enabledFlow = get<CoreConfigFlow>().flow.map { it.enableIndex }
+        val experimentalDevices = get<ExperimentalDevices>()
         RequiredPermissions(
-            flow {
-                emit(pebbleDelegate.requiredPermissions())
+            flow { emit(pebbleDelegate.requiredPermissions()) }.combine(enabledFlow) { permissions, enabled ->
+                permissions + if (enabled) experimentalDevices.requiredRuntimePermissions() else emptySet()
             }
         )
     }
+    singleOf(::ModelDownloadManager)
 }

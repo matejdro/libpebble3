@@ -95,11 +95,13 @@ kotlin {
                 optIn("kotlinx.cinterop.ExperimentalForeignApi")
                 optIn("androidx.compose.material3.ExperimentalMaterial3Api")
                 optIn("kotlin.time.ExperimentalTime")
+                optIn("kotlin.uuid.ExperimentalUuidApi")
             }
         }
         commonMain {
             dependencies {
                 implementation(libs.kotlinx.io.core)
+                implementation(libs.coroutines)
                 implementation(compose.runtime)
                 implementation(compose.ui)
                 implementation(compose.foundation)
@@ -119,13 +121,14 @@ kotlin {
                 implementation(libs.ktor.client.serialization.json)
                 implementation(libs.ktor.client.logging)
                 implementation(libs.webview)
+                implementation(libs.uri)
                 implementation(compose.components.uiToolingPreview)
-                implementation(libs.cactus)
-                api(libs.settings)
+                implementation(project(":cactus"))
                 implementation(project(":libpebble3"))
                 implementation(libs.kmpio)
                 api(libs.room.runtime)
                 implementation(libs.sqlite.bundled)
+                api(libs.settings)
             }
         }
 
@@ -193,16 +196,15 @@ buildkonfig {
         buildConfigField(FieldSpec.Type.STRING, "USER_AGENT_VERSION", headSha)
         buildConfigField(FieldSpec.Type.STRING, "BUG_URL", gradleStringPropOrNull("bugUrl"), nullable = true)
         buildConfigField(FieldSpec.Type.STRING, "TOKEN_URL", gradleStringPropOrNull("tokenUrl"), nullable = true)
-        buildConfigField(FieldSpec.Type.STRING, "GITHUB_CLIENT_ID", gradleStringPropOrNull("githubClientId"), nullable = true)
-        buildConfigField(FieldSpec.Type.STRING, "GITHUB_CLIENT_SECRET", gradleStringPropOrNull("githubClientSecret"), nullable = true)
         buildConfigField(FieldSpec.Type.STRING, "MIXPANEL_TOKEN", gradleStringPropOrNull("mixpanelToken"), nullable = true)
         buildConfigField(FieldSpec.Type.STRING, "WISPR_KEY", gradleStringPropOrNull("wisprKey"), nullable = true)
+        buildConfigField(FieldSpec.Type.STRING, "WISPR_AUTH_URL", gradleStringPropOrNull("wisprAuthUrl"), nullable = true)
         buildConfigField(FieldSpec.Type.STRING, "MEMFAULT_TOKEN", gradleStringPropOrNull("memfaultToken"), nullable = true)
         buildConfigField(FieldSpec.Type.STRING, "GOOGLE_CLIENT_ID", gradleStringPropOrNull("googleClientId"), nullable = true)
         buildConfigField(FieldSpec.Type.STRING, "CACTUS_PRO_KEY", gradleStringPropOrNull("cactusProKey"), nullable = true)
-        buildConfigField(FieldSpec.Type.STRING, "CACTUS_DEFAULT_STT_MODEL_IOS", "whisper-medium-pro")
-        buildConfigField(FieldSpec.Type.STRING, "CACTUS_DEFAULT_STT_MODEL_ANDROID", "whisper-tiny")
-        buildConfigField(FieldSpec.Type.STRING, "CACTUS_DEFAULT_STT_MODEL_ANDROID_HEAVY", "whisper-small")
-        buildConfigField(FieldSpec.Type.STRING, "CACTUS_LM_MODEL_NAME", "qwen3-0.6")
+        buildConfigField(FieldSpec.Type.STRING, "CACTUS_STT_MODEL", "parakeet-tdt-0.6b-v3")
+        buildConfigField(FieldSpec.Type.STRING, "CACTUS_LM_MODEL_NAME", "Qwen3-0.6B")
+        buildConfigField(FieldSpec.Type.STRING, "CACTUS_STT_WEIGHTS_VERSION", "v1.10")
+        buildConfigField(FieldSpec.Type.STRING, "CACTUS_LM_WEIGHTS_VERSION", "v1.9")
     }
 }

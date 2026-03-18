@@ -3,8 +3,6 @@ package io.rebble.libpebblecommon.connection.endpointmanager
 import co.touchlab.kermit.Logger
 import com.russhwolf.settings.Settings
 import com.russhwolf.settings.set
-import io.rebble.libpebblecommon.SystemAppIDs.KICKSTART_APP_UUID
-import io.rebble.libpebblecommon.SystemAppIDs.TICTOC_APP_UUID
 import io.rebble.libpebblecommon.WatchConfigFlow
 import io.rebble.libpebblecommon.connection.PebbleIdentifier
 import io.rebble.libpebblecommon.database.dao.LockerEntryRealDao
@@ -37,7 +35,7 @@ class AppOrderManager(
         connectionScope.launch {
             lockerDao.getAppOrderFlow(
                 type = AppType.Watchapp.code,
-                limit = watchConfigFlow.value.lockerSyncLimit,
+                limit = watchConfigFlow.value.lockerSyncLimitV2,
             ).distinctUntilChanged().collect { newOrder ->
                 if (newOrder != stored.watchapps) {
                     stored = stored.copy(watchapps = newOrder)
@@ -48,9 +46,8 @@ class AppOrderManager(
         connectionScope.launch {
             lockerDao.getAppOrderFlow(
                 type = AppType.Watchface.code,
-                limit = watchConfigFlow.value.lockerSyncLimit,
-            ).distinctUntilChanged().collect {
-                val newOrder = SYSTEM_FACES + it
+                limit = watchConfigFlow.value.lockerSyncLimitV2,
+            ).distinctUntilChanged().collect { newOrder ->
                 if (newOrder != stored.watchfaces) {
                     stored = stored.copy(watchfaces = newOrder)
                     updateOrder()
@@ -63,13 +60,6 @@ class AppOrderManager(
         logger.d { "Sending app order update: $stored" }
         service.send(AppReorderRequest(stored.watchapps + stored.watchfaces))
         settings.set(settingsKey, json.encodeToString(stored))
-    }
-
-    companion object {
-        private val SYSTEM_FACES = listOf<Uuid>(
-            TICTOC_APP_UUID,
-            KICKSTART_APP_UUID,
-        )
     }
 }
 

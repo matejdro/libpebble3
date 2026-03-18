@@ -38,7 +38,7 @@ private const val DONE = 4
 class XMLHTTPRequestManager(
     private val scope: CoroutineScope,
     private val eval: (String) -> JSValue?,
-    private val remoteTimelineEmulator: RemoteTimelineEmulator,
+    private val httpInterceptorManager: HttpInterceptorManager,
     private val appInfo: PbwAppInfo,
 ): RegisterableJsInterface {
     private var lastInstance = 0
@@ -54,6 +54,29 @@ class XMLHTTPRequestManager(
     )
 
     override val name = "_XMLHTTPRequestManager"
+
+    override fun dispatch(method: String, args: List<Any?>) = when (method) {
+        "getXHRInstanceID" -> getXHRInstanceID()
+        "open" -> {
+            open(
+                (args[0] as Number).toDouble(),
+                args[1].toString(),
+                args[2].toString(),
+                when (val v = args[3]) {
+                    is Boolean -> v
+                    is Number -> v.toInt() != 0
+                    else -> true
+                },
+                args[4].toString(),
+                args[5].toString()
+            )
+            null
+        }
+        "setRequestHeader" -> { setRequestHeader((args[0] as Number).toDouble(), args[1].toString(), args[2] ?: ""); null }
+        "send" -> { send((args[0] as Number).toDouble(), args[1]?.toString() ?: "", args.getOrNull(2)); null }
+        "abort" -> { abort((args[0] as Number).toDouble()); null }
+        else -> error("Unknown method: $method")
+    }
 
     private fun getXHRInstanceID(): Int {
         val id = ++lastInstance
@@ -140,11 +163,15 @@ class XMLHTTPRequestManager(
                 if (async) {
                     dispatchEvent(XHREvent.LoadStart)
                 }
-                if (remoteTimelineEmulator.shouldIntercept(url!!)) {
+                if (httpInterceptorManager.shouldIntercept(url!!)) {
                     val appUuid = Uuid.parse(appInfo.uuid)
-                    val result = remoteTimelineEmulator.onIntercepted(url!!, method!!.value, data!!.decodeToString(), appUuid)
+                    val response = httpInterceptorManager.onIntercepted(url!!, method!!.value, data?.decodeToString(), appUuid)
                     scope.launch {
-                        eval("$jsInstance._onResponseComplete({}, 200, \"OK\", \"$result\")")
+                        val responseHeaders = Json.encodeToString<Map<String, String>>(emptyMap())
+                        val status = Json.encodeToString(response.status)
+                        val statusText = Json.encodeToString(if (response.status == 200) "OK" else "Error")
+                        val body = Json.encodeToString(response.result)
+                        eval("$jsInstance._onResponseComplete($responseHeaders, $status, $statusText, $body)")
                         changeReadyState(DONE)
                         dispatchEvent(XHREvent.Load)
                         dispatchEvent(XHREvent.LoadEnd)

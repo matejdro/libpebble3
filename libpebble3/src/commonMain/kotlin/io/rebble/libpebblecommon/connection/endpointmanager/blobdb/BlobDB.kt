@@ -18,7 +18,10 @@ import io.rebble.libpebblecommon.database.dao.TimelineReminderRealDao
 import io.rebble.libpebblecommon.database.dao.ValueParams
 import io.rebble.libpebblecommon.database.dao.VibePatternDao
 import io.rebble.libpebblecommon.database.dao.WatchPrefRealDao
-import io.rebble.libpebblecommon.database.entity.WatchSettingsDao
+import io.rebble.libpebblecommon.database.dao.WeatherAppRealDao
+import io.rebble.libpebblecommon.database.entity.AppPrefsEntryDao
+import io.rebble.libpebblecommon.database.entity.HealthSettingsEntryDao
+import io.rebble.libpebblecommon.database.entity.HealthStatDao
 import io.rebble.libpebblecommon.di.ConnectionCoroutineScope
 import io.rebble.libpebblecommon.di.PlatformConfig
 import io.rebble.libpebblecommon.metadata.WatchType
@@ -55,21 +58,27 @@ data class BlobDbDaos(
     private val timelinePinDao: TimelinePinRealDao,
     private val timelineReminderDao: TimelineReminderRealDao,
     private val notificationAppRealDao: NotificationAppRealDao,
-    private val watchSettingsDao: WatchSettingsDao,
+    private val healthSettingsDao: HealthSettingsEntryDao,
+    private val healthStatDao: HealthStatDao,
     private val vibePatternDao: VibePatternDao,
     private val platformConfig: PlatformConfig,
     private val watchPrefDao: WatchPrefRealDao,
+    private val weatherAppDao: WeatherAppRealDao,
+    private val appPrefsEntryDao: AppPrefsEntryDao,
 ) {
     fun get(): Set<BlobDbDao<BlobDbRecord>> = buildSet {
         add(lockerEntryDao)
         add(notificationsDao)
         add(timelinePinDao)
         add(timelineReminderDao)
-        add(watchSettingsDao)
+        add(healthSettingsDao)
+        add(healthStatDao)
         if (platformConfig.syncNotificationApps) {
             add(notificationAppRealDao)
         }
         add(watchPrefDao)
+        add(weatherAppDao)
+        add(appPrefsEntryDao)
         // because typing
     } as Set<BlobDbDao<BlobDbRecord>>
     
@@ -332,7 +341,6 @@ class BlobDB(
             return
         }
         val bytes = command.serialize().asByteArray()
-        logger.v { "bytes for insert: ${bytes.joinToString()}" }
         val result = sendWithTimeout(command)
         logger.d("insert: result = ${result?.responseValue}")
         when (result?.responseValue) {

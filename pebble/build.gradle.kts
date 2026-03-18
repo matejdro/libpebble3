@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlinx.atomicfu)
 }
 
 android {
@@ -105,6 +106,7 @@ kotlin {
                 implementation(libs.serialization)
                 implementation(libs.kotlinx.datetime)
                 implementation(libs.settings)
+                implementation(libs.settings.test)
                 implementation(libs.settings.serialization)
                 implementation(libs.ktor.client.core)
                 implementation(libs.ktor.client.contentNegotiation)
@@ -112,14 +114,19 @@ kotlin {
                 implementation(libs.coil)
                 implementation(libs.coil.ktor)
                 implementation(libs.webview)
+                implementation(libs.backhandler)
                 api(libs.uri)
                 implementation(libs.firebase.crashlytics)
                 implementation(libs.firebase.auth)
                 implementation(libs.firebase.firestore)
                 implementation(libs.coredevices.speex)
-                api(libs.cactus)
+                api(project(":cactus"))
                 api(libs.algolia)
                 implementation(libs.reorderable)
+                implementation(libs.compass.geocoder)
+                implementation(libs.compass.geocoder.mobile)
+                implementation(libs.compass.autocomplete)
+                implementation(libs.compass.autocomplete.mobile)
             }
         }
 

@@ -5,6 +5,7 @@ import co.touchlab.kermit.Logger
 import com.eygraber.uri.Uri
 import coredevices.pebble.Platform
 import coredevices.pebble.account.BootConfigProvider
+import coredevices.pebble.services.HttpClientAuthType
 import coredevices.pebble.services.PebbleHttpClient
 import coredevices.pebble.services.PebbleHttpClient.Companion.get
 import io.rebble.libpebblecommon.connection.FirmwareUpdateCheckResult
@@ -40,10 +41,10 @@ class Cohorts(
             appendQueryParameter(PARAM_PEBBLE_APP_VERSION, appVersion.version)
             appendQueryParameter(PARAM_SELECT, "fw")
         }.build()
-        val response: CohortsResponse? = httpClient.get(uri.toString(), auth = true)
+        val response: CohortsResponse? = httpClient.get(uri.toString(), auth = HttpClientAuthType.Pebble)
         if (response == null) {
             logger.i { "No response from cohorts" }
-            return FirmwareUpdateCheckResult.UpdateCheckFailed("Failed to check for firmware update")
+            return FirmwareUpdateCheckResult.UpdateCheckFailed("Failed to check for PebbleOS update")
         }
         logger.v { "response: $response" }
         // (differently from memfault) cohorts always returns the latest (we didn't pass the current
@@ -58,7 +59,7 @@ class Cohorts(
         )
         if (latestFwVersion == null) {
             logger.e { "Couldn't parse firmware version from response" }
-            return FirmwareUpdateCheckResult.UpdateCheckFailed("Failed to check for firmware update")
+            return FirmwareUpdateCheckResult.UpdateCheckFailed("Failed to check for PebbleOS update")
         }
         if (watch.runningFwVersion.isRecovery || latestFwVersion > watch.runningFwVersion) {
             return FirmwareUpdateCheckResult.FoundUpdate(

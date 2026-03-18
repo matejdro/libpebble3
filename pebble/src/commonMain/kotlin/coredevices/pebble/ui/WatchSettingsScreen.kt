@@ -6,24 +6,27 @@ import CoreAppVersion
 import NextBugReportContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Launch
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.AppSettingsAlt
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Notifications
@@ -33,26 +36,23 @@ import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -65,26 +65,26 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.ViewModel
 import co.touchlab.kermit.Logger
-import com.cactus.CactusSTT
-import com.cactus.VoiceModel
 import com.russhwolf.settings.Settings
 import com.russhwolf.settings.set
 import coredevices.CoreBackgroundSync
 import coredevices.EnableExperimentalDevices
 import coredevices.analytics.AnalyticsBackend
+import coredevices.analytics.CoreAnalytics
 import coredevices.analytics.setUser
 import coredevices.coreapp.util.AppUpdate
 import coredevices.coreapp.util.AppUpdateState
 import coredevices.pebble.PebbleFeatures
 import coredevices.pebble.Platform
-import coredevices.pebble.account.BootConfigProvider
-import coredevices.pebble.account.FirestoreLocker
 import coredevices.pebble.account.PebbleAccount
 import coredevices.pebble.rememberLibPebble
 import coredevices.pebble.ui.SettingsKeys.KEY_ENABLE_FIREBASE_UPLOADS
@@ -92,54 +92,46 @@ import coredevices.pebble.ui.SettingsKeys.KEY_ENABLE_MEMFAULT_UPLOADS
 import coredevices.pebble.ui.SettingsKeys.KEY_ENABLE_MIXPANEL_UPLOADS
 import coredevices.pebble.weather.WeatherFetcher
 import coredevices.ui.M3Dialog
-import coredevices.ui.ModelDownloadDialog
-import coredevices.ui.ModelType
-import coredevices.ui.PebbleElevatedButton
-import coredevices.ui.SignInButton
-import coredevices.util.CactusSTTMode
-import coredevices.util.CompanionDevice
-import coredevices.util.CoreConfigFlow
+import coredevices.ui.SignInDialog
 import coredevices.util.CoreConfigHolder
 import coredevices.util.PermissionRequester
+import coredevices.util.STTConfig
 import coredevices.util.WeatherUnit
-import coredevices.util.calculateDefaultSTTModel
-import coredevices.util.deleteRecursive
 import coredevices.util.emailOrNull
-import coredevices.util.getModelDirectories
+import coredevices.util.models.CactusSTTMode
+import coredevices.util.models.ModelDownloadStatus
+import coredevices.util.models.ModelManager
+import coredevices.util.models.RecommendedModel
 import coredevices.util.rememberUiContext
 import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.crashlytics.crashlytics
-import dev.gitlive.firebase.firestore.FirebaseFirestoreException
-import dev.gitlive.firebase.firestore.code
-import io.ktor.http.parseUrl
 import io.rebble.libpebblecommon.connection.AppContext
 import io.rebble.libpebblecommon.connection.ConnectedPebble
 import io.rebble.libpebblecommon.connection.KnownPebbleDevice
-import io.rebble.libpebblecommon.connection.LibPebble
-import io.rebble.libpebblecommon.health.HealthSettings
 import io.rebble.libpebblecommon.js.PKJSApp
+import io.rebble.libpebblecommon.metadata.WatchType
 import io.rebble.libpebblecommon.packets.ProtocolCapsFlag
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.IO
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.io.files.Path
 import org.jetbrains.compose.resources.stringResource
-import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 import theme.CoreAppTheme
 import theme.ThemeProvider
 import kotlin.math.roundToLong
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 enum class TopLevelType(val displayName: String) {
-    Phone("Phone Settings"),
-    Watch("Watch Settings"),
-    All("All Settings"),
-    Notifications("Notification Settings"),
+    Phone("Phone"),
+    Watch("Watch"),
+    All("All"),
+    Notifications("Notifications"),
     ;
 
     fun icon(platform: Platform) = when (this) {
@@ -159,20 +151,25 @@ enum class TopLevelType(val displayName: String) {
 }
 
 enum class Section(val title: String /*val type: TopLevelType*/) {
-    App("App"),
+    About("About"),
     Support("Support"),
-    Default("Settings"),
+    Defaults("Defaults"),
+    QuickLaunch("Quick Launch"), // watch only
+    NotificationsWatch("Notifications"), // watch only
+    Settings("Settings"),
+    Apps("Apps"),
     Calendar("Calendar"),
     Health("Health"),
-    Time("Time"),
-    Display("Display"),
-    Timeline("Timeline"),
+    Speech("Speech Recognition"),
+    Display("Display"), // watch only
     Weather("Weather"),
     Notifications("Notifications"),
+    Time("Time"), // watch only
+    Timeline("Timeline"), // watch only
     QuietTime("Quiet Time"),
     Connectivity("Connectivity"),
-    QuickLaunch("Quick Launch"),
     Logging("Logging"),
+    Other("Other"), // watch only
     Analytics("Analytics"),
     Debug("Debug"),
 }
@@ -208,61 +205,30 @@ fun settingsBadgeTotal(): Int {
     return missingPermissions.size + updatesAvailable + appUpdated
 }
 
-fun pebbleScreenContext(
-    libPebble: LibPebble,
-    coreConfigFlow: CoreConfigFlow,
-    permissionRequester: PermissionRequester,
-    companionDevice: CompanionDevice,
-): String {
-    val watches = libPebble.watches.value.sortedByDescending {
-        when (it) {
-            is KnownPebbleDevice -> it.lastConnected.epochSeconds
-            else -> 0
-        }
-    }
-    val lastConnectedWatch = watches.firstOrNull() as? KnownPebbleDevice
-    val watchesWithoutCompanionDevicePermission = watches.mapNotNull {
-        if (it is KnownPebbleDevice && !companionDevice.hasApprovedDevice(it.identifier)) {
-            "[${it.identifier} / ${it.name}]"
-        } else {
-            null
-        }
-    }
-    return buildString {
-        appendLine("lastConnectedFirmwareVersion: ${lastConnectedWatch?.runningFwVersion}")
-        appendLine("lastConnectedSerial: ${lastConnectedWatch?.serial}")
-        appendLine("lastConnectedWatchType: ${lastConnectedWatch?.watchType}")
-        appendLine("otherPebbleApps: ${libPebble.otherPebbleCompanionAppsInstalled().value}")
-        appendLine("libPebbleConfig: ${libPebble.config.value}")
-        appendLine("coreConfig: ${coreConfigFlow.value}")
-        appendLine("missingPermissions: ${permissionRequester.missingPermissions.value}")
-        appendLine("watchesWithoutCompanionDevicePermission: $watchesWithoutCompanionDevicePermission")
-        appendLine(libPebble.watchesDebugState())
-        appendLine("Watches (most recently connected first):")
-        watches.forEachIndexed { index, watch ->
-            appendLine("watch_$index $watch")
-        }
-    }
-}
-
 private val logger = Logger.withTag("WatchSettingsScreen")
 
-sealed interface RequestedSTTMode {
+sealed interface RequestedLocalSTTMode {
     val mode: CactusSTTMode
 
-    object Disabled : RequestedSTTMode {
-        override val mode = CactusSTTMode.Disabled
+    object Disabled : RequestedLocalSTTMode {
+        override val mode = CactusSTTMode.RemoteOnly
     }
 
     data class Enabled(
         override val mode: CactusSTTMode,
         val modelName: String
-    ) : RequestedSTTMode
+    ) : RequestedLocalSTTMode
+}
+
+class WatchSettingsScreenViewModel : ViewModel() {
+    val searchState = SearchState()
+    var selectedTopLevelType by mutableStateOf(TopLevelType.Phone)
 }
 
 @Composable
 fun WatchSettingsScreen(navBarNav: NavBarNav, topBarParams: TopBarParams) {
     Box(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
+        val viewModel = koinViewModel<WatchSettingsScreenViewModel>()
         val libPebble = rememberLibPebble()
         val libPebbleConfig by libPebble.config.collectAsState()
         val coreConfigHolder: CoreConfigHolder = koinInject()
@@ -272,17 +238,17 @@ fun WatchSettingsScreen(navBarNav: NavBarNav, topBarParams: TopBarParams) {
         val currentTheme by themeProvider.theme.collectAsState()
         val pebbleFeatures = koinInject<PebbleFeatures>()
         val pebbleAccount = koinInject<PebbleAccount>()
-        val bootConfig = koinInject<BootConfigProvider>()
+        val localSnackbarHostState = remember { SnackbarHostState() }
         val loggedIn by pebbleAccount.loggedIn.collectAsState()
         val coreUser by Firebase.auth.authStateChanged.map {
             it?.emailOrNull
         }.distinctUntilChanged()
             .collectAsState(Firebase.auth.currentUser?.emailOrNull)
-        val firestoreLocker = koinInject<FirestoreLocker>()
         val scope = rememberCoroutineScope()
         val appContext = koinInject<AppContext>()
         val appVersion = koinInject<CoreAppVersion>()
         val platform = koinInject<Platform>()
+        val modelManager: ModelManager = koinInject()
         val nextBugReportContext: NextBugReportContext = koinInject()
         val appUpdate: AppUpdate = koinInject()
         val updateState by appUpdate.updateAvailable.collectAsState()
@@ -292,59 +258,89 @@ fun WatchSettingsScreen(navBarNav: NavBarNav, topBarParams: TopBarParams) {
             PKJSCopyTokenDialog(onDismissRequest = { setShowCopyTokenDialog(false) })
         }
         var showBtClassicInfoDialog by remember { mutableStateOf(false) }
-        var showLockerImportDialog by remember { mutableStateOf(false) }
+        var showHealthStatsDialog by remember { mutableStateOf(false) }
+        var showSignInDialog by remember { mutableStateOf(false) }
         var debugOptionsEnabled by remember { mutableStateOf(settings.showDebugOptions()) }
-        var speechRecognitionEnabled by mutableStateOf(
-            CactusSTTMode.fromId(settings.getInt(SettingsKeys.KEY_CACTUS_MODE, 0))
-        )
-        var showSpeechRecognitionModelDialog by remember { mutableStateOf<RequestedSTTMode?>(null) }
-        var showSpeechRecognitionModeDialog by remember { mutableStateOf(false) }
-        if (showSpeechRecognitionModelDialog != null) {
-            check(showSpeechRecognitionModelDialog is RequestedSTTMode.Enabled)
-            val modelName = remember {
-                (showSpeechRecognitionModelDialog!! as RequestedSTTMode.Enabled).modelName
-            }
-            ModelDownloadDialog(
-                onDismissRequest = { success ->
-                    if (success) {
-                        settings[SettingsKeys.KEY_CACTUS_MODE] =
-                            showSpeechRecognitionModelDialog!!.mode.id
-                        if (showSpeechRecognitionModelDialog is RequestedSTTMode.Enabled) {
-                            settings[SettingsKeys.KEY_CACTUS_STT_MODEL] = modelName
+        var pendingSTTModeDialog by remember { mutableStateOf<CactusSTTMode?>(null) }
+        val modelDownloadStatus by modelManager.modelDownloadStatus.collectAsState()
+        val recommendedSTTModel = modelManager.getRecommendedSTTModel()
+        pendingSTTModeDialog?.let { pendingSTTMode ->
+            ModelDownloadPromptDialog(
+                isLite = recommendedSTTModel is RecommendedModel.Lite,
+                onGetRecommended = {
+                    scope.launch {
+                        val models = modelManager.getAvailableSTTModels()
+                        val recommendedModel = models.firstOrNull { it.slug == recommendedSTTModel.modelSlug }
+                            ?: run {
+                                topBarParams.showSnackbar("Error occurred. Please try again later.")
+                                logger.e { "Recommended model $recommendedSTTModel not found in available models: ${models.map { it.slug }}" }
+                                pendingSTTModeDialog = null
+                                return@launch
+                            }
+                        if (!modelManager.downloadSTTModel(recommendedModel, allowMetered = true)) {
+                            topBarParams.showSnackbar("Error starting download. Please try again later.")
+                            logger.e { "Failed to start download for recommended model ${recommendedModel.slug}" }
+                        } else {
+                            coreConfigHolder.update(
+                                coreConfig.copy(
+                                    sttConfig = STTConfig(
+                                        mode = pendingSTTMode,
+                                        modelName = recommendedModel.slug
+                                    )
+                                )
+                            )
                         }
-                        speechRecognitionEnabled = showSpeechRecognitionModelDialog!!.mode
+                        pendingSTTModeDialog = null
                     }
-                    showSpeechRecognitionModelDialog = null
                 },
-                models = setOf(ModelType.STT(modelName = modelName))
+                onDismiss = {
+                    pendingSTTModeDialog = null
+                }
             )
         }
-        if (showSpeechRecognitionModeDialog) {
-            val mode = remember {
-                CactusSTTMode.fromId(settings.getInt(SettingsKeys.KEY_CACTUS_MODE, 0))
-            }
-            val model = remember {
-                settings.getString(
-                    SettingsKeys.KEY_CACTUS_STT_MODEL,
-                    calculateDefaultSTTModel()
-                )
-            }
-            STTModeDialog(
-                onModeSelected = {
-                    showSpeechRecognitionModeDialog = false
-                    if (it != RequestedSTTMode.Disabled) {
-                        showSpeechRecognitionModelDialog = it
-                    } else {
-                        speechRecognitionEnabled = it.mode
-                        settings[SettingsKeys.KEY_CACTUS_MODE] = it.mode
+        var modelSnackbarJob by remember { mutableStateOf<Job?>(null) }
+        LaunchedEffect(modelDownloadStatus) {
+            when (modelDownloadStatus) {
+                is ModelDownloadStatus.Idle -> {
+                    modelSnackbarJob?.let {
+                        it.cancel()
+                        modelSnackbarJob = null
                     }
-                },
-                onDismissRequest = { showSpeechRecognitionModeDialog = false },
-                selectedMode = when (mode) {
-                    CactusSTTMode.Disabled -> RequestedSTTMode.Disabled
-                    else -> RequestedSTTMode.Enabled(mode, model)
-                },
-                debugOptionsEnabled
+                }
+                is ModelDownloadStatus.Cancelled -> {
+                    modelSnackbarJob?.let {
+                        it.cancel()
+                        modelSnackbarJob = null
+                    }
+                }
+                is ModelDownloadStatus.Failed -> {
+                    modelSnackbarJob?.let {
+                        it.cancel()
+                        modelSnackbarJob = null
+                    }
+                    localSnackbarHostState.showSnackbar("Failed to download model")
+                }
+                is ModelDownloadStatus.Downloading -> {
+                    if (modelSnackbarJob?.isActive != true) {
+                        modelSnackbarJob = scope.launch {
+                            localSnackbarHostState.showSnackbar(
+                                "Downloading model...",
+                                duration = SnackbarDuration.Indefinite
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        if (showHealthStatsDialog) {
+            HealthStatsDialog(
+                libPebble = libPebble,
+                onDismissRequest = { showHealthStatsDialog = false },
+            )
+        }
+        if (showSignInDialog) {
+            SignInDialog(
+                onDismiss = { showSignInDialog = false }
             )
         }
         if (showBtClassicInfoDialog) {
@@ -382,23 +378,21 @@ please disable the option.""".trimIndent(),
                 }
             }
         }
-        if (showLockerImportDialog) {
-            val isRebble = remember {
-                parseUrl(bootConfig.getUrl() ?: "")?.host?.endsWith("rebble.io") == true
-            }
-            LockerImportDialog(
-                onDismissRequest = { showLockerImportDialog = false },
-                isRebble = isRebble,
-                onEnabled = {},
-                topBarParams = topBarParams,
-            )
-        }
+        val listState = rememberLazyListState()
 
         LaunchedEffect(Unit) {
-            topBarParams.searchAvailable(true)
-            topBarParams.actions {
+            topBarParams.searchAvailable(viewModel.searchState)
+            topBarParams.actions {}
+            topBarParams.title("Settings")
+            launch {
+                topBarParams.scrollToTop.collect {
+                    if (listState.firstVisibleItemIndex > 0) {
+                        listState.animateScrollToItem(0)
+                    } else {
+                        viewModel.selectedTopLevelType = TopLevelType.Phone
+                    }
+                }
             }
-            topBarParams.canGoBack(false)
         }
         var themeDropdownExpanded by remember { mutableStateOf(false) }
         val permissionRequester: PermissionRequester = koinInject()
@@ -408,16 +402,21 @@ please disable the option.""".trimIndent(),
         val enableFirebase = mutableStateOf(settings.getBoolean(KEY_ENABLE_FIREBASE_UPLOADS, true))
         val enableMemfault = mutableStateOf(settings.getBoolean(KEY_ENABLE_MEMFAULT_UPLOADS, true))
         val enableMixpanel = mutableStateOf(settings.getBoolean(KEY_ENABLE_MIXPANEL_UPLOADS, true))
-        val companionDevice: CompanionDevice = koinInject()
-        val coreConfigFlow: CoreConfigFlow = koinInject()
         val enableExperimentalDevices: EnableExperimentalDevices = koinInject()
         val experimentalDevices by enableExperimentalDevices.enabled.collectAsState()
         val appUpdateTracker: AppUpdateTracker = koinInject()
         val showChangelogBadge = remember { appUpdateTracker.appWasUpdated.value }
+        val hasOfflineModels = remember {
+            modelManager.getDownloadedModelSlugs().any { it.startsWith("parakeet", false) }
+        }
         LaunchedEffect(Unit) {
             appUpdateTracker.acknowledgeCurrentVersion()
         }
-        val healthSettings by libPebble.healthSettings.collectAsState(HealthSettings())
+        val healthSettingsNullable by libPebble.healthSettings.collectAsState(null)
+        val healthSettings = healthSettingsNullable
+        if (healthSettings == null) {
+            return
+        }
         val weatherFetcher: WeatherFetcher = koinInject()
         val watches by libPebble.watches.collectAsState(null)
         val watchesCastable = watches
@@ -432,6 +431,7 @@ please disable the option.""".trimIndent(),
             }
         }
         val watchPrefs = watchPrefs()
+        val coreAnalytics: CoreAnalytics = koinInject()
 
         val rawSettingsItems = remember(
             libPebbleConfig,
@@ -451,7 +451,7 @@ please disable the option.""".trimIndent(),
                     title = "App Update Available",
                     description = "Please update the Pebble App!",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.App,
+                    section = Section.About,
                     action = {
                         val update = updateState as? AppUpdateState.UpdateAvailable
                         if (uiContext != null && update != null) {
@@ -474,7 +474,7 @@ please disable the option.""".trimIndent(),
                         "${missingPermissions.size} permissions missing!"
                     },
                     topLevelType = TopLevelType.Phone,
-                    section = Section.App,
+                    section = Section.About,
                     action = if (missingPermissions.isNotEmpty()) {
                         {
                             navBarNav.navigateTo(PebbleNavBarRoutes.PermissionsRoute)
@@ -485,7 +485,7 @@ please disable the option.""".trimIndent(),
                 SettingsItem(
                     title = "App Version",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.App,
+                    section = Section.About,
                     item = {
                         ListItem(
                             headlineContent = {
@@ -499,19 +499,21 @@ please disable the option.""".trimIndent(),
                 basicSettingsActionItem(
                     title = "What's new in the app",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.App,
+                    section = Section.About,
                     action = {
                         navBarNav.navigateTo(CommonRoutes.RoadmapChangelogRoute)
                     },
+                    actionIcon = Icons.AutoMirrored.Default.Launch,
                     badge = if (showChangelogBadge) "1" else null
                 ),
                 basicSettingsActionItem(
                     title = "What’s new in PebbleOS",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.App,
+                    section = Section.About,
                     action = {
                         navBarNav.navigateTo(CommonRoutes.PebbleOsChangelogRoute)
                     },
+                    actionIcon = Icons.AutoMirrored.Default.Launch,
                 ),
                 basicSettingsActionItem(
                     title = "Getting Started & Troubleshooting",
@@ -520,6 +522,7 @@ please disable the option.""".trimIndent(),
                     action = {
                         navBarNav.navigateTo(CommonRoutes.TroubleshootingRoute)
                     },
+                    actionIcon = Icons.AutoMirrored.Default.Launch,
                 ),
                 basicSettingsActionItem(
                     title = "New Bug Report",
@@ -527,13 +530,6 @@ please disable the option.""".trimIndent(),
                     topLevelType = TopLevelType.Phone,
                     section = Section.Support,
                     action = {
-                        nextBugReportContext.nextContext =
-                            pebbleScreenContext(
-                                libPebble,
-                                coreConfigFlow,
-                                permissionRequester,
-                                companionDevice
-                            )
                         navBarNav.navigateTo(
                             CommonRoutes.BugReport(
                                 pebble = true,
@@ -552,14 +548,13 @@ please disable the option.""".trimIndent(),
                 basicSettingsActionItem(
                     title = "Configure Appstore Sources",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.Default,
-                    action = { navBarNav.navigateTo(PebbleRoutes.AppstoreSettingsRoute) },
-                    show = { coreConfig.useNativeAppStore },
+                    section = Section.Apps,
+                    action = { navBarNav.navigateTo(PebbleNavBarRoutes.AppstoreSettingsRoute) },
                 ),
                 basicSettingsDropdownItem(
                     title = "App Theme",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.Display,
+                    section = Section.Settings,
                     keywords = "dark light system",
                     selectedItem = currentTheme,
                     items = CoreAppTheme.entries,
@@ -574,20 +569,35 @@ please disable the option.""".trimIndent(),
                     title = "Restore System app positions",
                     description = "Restore system apps to their usual position at the top of the menu",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.Display,
+                    section = Section.Apps,
                     action = {
                         libPebble.restoreSystemAppOrder()
+                    },
+                ),
+                basicSettingsDropdownItem(
+                    title = "Background Refresh Interval",
+                    description = "How often to check for updates, update apps from store, etc",
+                    topLevelType = TopLevelType.Phone,
+                    section = Section.Settings,
+                    selectedItem = RegularSyncInterval.from(coreConfig.regularSyncInterval),
+                    items = RegularSyncInterval.entries,
+                    onItemSelected = {
+                        coreBackgroundSync.updateFullSyncPeriod(it.period)
+                    },
+                    itemText = {
+                        it.displayName
                     },
                 ),
                 basicSettingsToggleItem(
                     title = "Enable Index Feed",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.Default,
+                    section = Section.Settings,
                     checked = coreConfig.enableIndex,
                     onCheckChanged = {
                         coreConfigHolder.update(
                             coreConfig.copy(
                                 enableIndex = it,
+                                indexPermissionsConfirmed = if (it) coreConfig.indexPermissionsConfirmed else false,
                             )
                         )
                     },
@@ -629,7 +639,7 @@ please disable the option.""".trimIndent(),
                     title = "Store notifications for",
                     topLevelType = TopLevelType.Phone,
                     section = Section.Notifications,
-                    description = "How long notifications are stored for (days). This enabled better deduplicating, and powers the notification history view",
+                    description = "How long notifications are stored for. This enabled better deduplicating, and powers the notification history view",
                     value = libPebbleConfig.notificationConfig.storeNotifiationsForDays.toLong(),
                     onValueChange = {
                         libPebble.updateConfig(
@@ -643,6 +653,7 @@ please disable the option.""".trimIndent(),
                     show = { pebbleFeatures.supportsNotificationFiltering() },
                     min = 0,
                     max = 7,
+                    unit = "Days"
                 ),
                 basicSettingsToggleItem(
                     title = "Store disabled notifications",
@@ -824,7 +835,7 @@ please disable the option.""".trimIndent(),
                 basicSettingsToggleItem(
                     title = "Use reversed PPoG",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.Default,
+                    section = Section.Settings,
                     checked = libPebbleConfig.bleConfig.reversedPPoG,
                     onCheckChanged = {
                         libPebble.updateConfig(
@@ -837,14 +848,65 @@ please disable the option.""".trimIndent(),
                     },
                     show = { false },
                 ),
+                basicSettingsToggleItem(
+                    title = "Enable Calendar",
+                    description = "Show calendar pins on timeline",
+                    topLevelType = TopLevelType.Phone,
+                    section = Section.Calendar,
+                    checked = libPebbleConfig.watchConfig.calendarPins,
+                    onCheckChanged = {
+                        libPebble.updateConfig(
+                            libPebbleConfig.copy(
+                                watchConfig = libPebbleConfig.watchConfig.copy(
+                                    calendarPins = it
+                                )
+                            )
+                        )
+                    },
+                ),
+                basicSettingsToggleItem(
+                    title = "Calendar Reminders",
+                    description = "Alerts before calendar events",
+                    topLevelType = TopLevelType.Phone,
+                    section = Section.Calendar,
+                    checked = libPebbleConfig.watchConfig.calendarReminders,
+                    onCheckChanged = {
+                        libPebble.updateConfig(
+                            libPebbleConfig.copy(
+                                watchConfig = libPebbleConfig.watchConfig.copy(
+                                    calendarReminders = it
+                                )
+                            )
+                        )
+                    },
+                    show = { libPebbleConfig.watchConfig.calendarPins },
+                ),
+                basicSettingsToggleItem(
+                    title = "Declined Events",
+                    description = "Display declined calendar events",
+                    topLevelType = TopLevelType.Phone,
+                    section = Section.Calendar,
+                    checked = libPebbleConfig.watchConfig.calendarShowDeclinedEvents,
+                    onCheckChanged = {
+                        libPebble.updateConfig(
+                            libPebbleConfig.copy(
+                                watchConfig = libPebbleConfig.watchConfig.copy(
+                                    calendarShowDeclinedEvents = it
+                                )
+                            )
+                        )
+                    },
+                    show = { libPebbleConfig.watchConfig.calendarPins },
+                ),
                 basicSettingsActionItem(
-                    title = "Calendar Settings",
-                    description = "",
+                    title = "Calendars",
+                    description = "Configure which calendars to display",
                     topLevelType = TopLevelType.Phone,
                     section = Section.Calendar,
                     action = {
-                        navBarNav.navigateTo(PebbleRoutes.CalendarsRoute)
+                        navBarNav.navigateTo(PebbleNavBarRoutes.CalendarsRoute)
                     },
+                    show = { libPebbleConfig.watchConfig.calendarPins },
                 ),
                 basicSettingsToggleItem(
                     title = "Enable Health",
@@ -885,9 +947,49 @@ please disable the option.""".trimIndent(),
                         )
                     },
                 ),
+                basicSettingsActionItem(
+                    title = "View debug stats",
+                    description = "Health statistics and averages",
+                    topLevelType = TopLevelType.Phone,
+                    section = Section.Health,
+                    keywords = "health steps sleep stats debug",
+                    action = {
+                        showHealthStatsDialog = true
+                    },
+                    show = { debugOptionsEnabled },
+                ),
+                basicSettingsToggleItem(
+                    title = "Enable Weather",
+                    description = "Fetch weather for the current location, for the Weather App (requires location permission)",
+                    topLevelType = TopLevelType.Phone,
+                    section = Section.Weather,
+                    checked = coreConfig.fetchWeather,
+                    onCheckChanged = {
+                        coreConfigHolder.update(
+                            coreConfig.copy(
+                                fetchWeather = it,
+                            )
+                        )
+                        GlobalScope.launch { weatherFetcher.fetchWeather(this) }
+                    },
+                ),
+                basicSettingsDropdownItem(
+                    title = "Weather Refresh Interval",
+                    topLevelType = TopLevelType.Phone,
+                    section = Section.Weather,
+                    selectedItem = WeatherSyncInterval.from(coreConfig.weatherSyncInterval),
+                    items = WeatherSyncInterval.entries,
+                    onItemSelected = {
+                        coreBackgroundSync.updateWeatherSyncPeriod(it.period)
+                    },
+                    itemText = {
+                        it.displayName
+                    },
+                    show = { coreConfig.fetchWeather }
+                ),
                 basicSettingsToggleItem(
                     title = "Weather Pins",
-                    description = "Add weather pins to timeline for the current location (requires location permissions)",
+                    description = "Add weather pins to timeline",
                     topLevelType = TopLevelType.Phone,
                     section = Section.Weather,
                     checked = coreConfig.weatherPinsV2,
@@ -897,8 +999,9 @@ please disable the option.""".trimIndent(),
                                 weatherPinsV2 = it,
                             )
                         )
-                        GlobalScope.launch { weatherFetcher.fetchWeather() }
+                        GlobalScope.launch { weatherFetcher.fetchWeather(this) }
                     },
+                    show = { coreConfig.fetchWeather }
                 ),
                 basicSettingsDropdownItem(
                     title = "Units",
@@ -913,15 +1016,26 @@ please disable the option.""".trimIndent(),
                                 weatherUnits = it,
                             )
                         )
-                        GlobalScope.launch { weatherFetcher.fetchWeather() }
+                        GlobalScope.launch { weatherFetcher.fetchWeather(this) }
                     },
-                    itemText = { it.name },
+                    itemText = { it.displayName },
+                    show = { coreConfig.fetchWeather }
+                ),
+                basicSettingsActionItem(
+                    title = "Locations",
+                    description = "Configure weather locations",
+                    topLevelType = TopLevelType.Phone,
+                    section = Section.Weather,
+                    action = {
+                        navBarNav.navigateTo(PebbleNavBarRoutes.WeatherRoute)
+                    },
+                    show = { coreConfig.fetchWeather }
                 ),
                 basicSettingsToggleItem(
                     title = "Use LAN developer connection",
                     description = "Allow connecting to developer connection over LAN, this is not secure and should only be used on trusted networks",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.Default,
+                    section = Section.Connectivity,
                     checked = libPebbleConfig.watchConfig.lanDevConnection,
                     onCheckChanged = {
                         libPebble.updateConfig(
@@ -961,80 +1075,56 @@ please disable the option.""".trimIndent(),
                     },
                     isDebugSetting = true,
                 ),
-                basicSettingsToggleItem(
-                    title = "Enable speech recognition (preview)",
-                    description = "Enable text replies/input via the watch microphone, using a local model. Requires a download",
+                basicSettingsDropdownItem(
+                    title = "Offline Speech Recognition",
+                    keywords = "cactus stt speech recognition offline",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.Default,
-                    checked = speechRecognitionEnabled != CactusSTTMode.Disabled,
-                    onCheckChanged = {
-                        if (it) {
-                            showSpeechRecognitionModeDialog = true
-                        } else {
-                            scope.launch {
-                                withContext(Dispatchers.IO) {
-                                    getModelDirectories().forEach {
-                                        deleteRecursive(Path(it))
-                                    }
-                                }
-                                settings[SettingsKeys.KEY_CACTUS_MODE] =
-                                    CactusSTTMode.Disabled.id
-                                speechRecognitionEnabled = CactusSTTMode.Disabled
-                            }
-                        }
-                    },
-                ),
-                basicSettingsToggleItem(
-                    title = "Use Native App Store",
-                    description = "Preview",
-                    topLevelType = TopLevelType.Phone,
-                    section = Section.Default,
-                    checked = coreConfig.useNativeAppStore,
-                    onCheckChanged = {
-                        if (!coreConfig.useNativeAppStore) {
-                            scope.launch {
-                                val lockerEmpty = try {
-                                    firestoreLocker.isLockerEmpty()
-                                } catch (e: FirebaseFirestoreException) {
-                                    logger.e(e) { "Error checking if Firestore locker is empty: code ${e.code.name}" }
-                                    topBarParams.showSnackbar("Please check your internet connection and try again")
-                                    return@launch
-                                }
-                                if (lockerEmpty && loggedIn != null) {
-                                    logger.i { "Showing locker import dialog" }
-                                    showLockerImportDialog = true
-                                    coreConfigHolder.update(
-                                        coreConfig.copy(
-                                            useNativeAppStore = true,
-                                        )
-                                    )
-                                } else {
-                                    logger.i { "Skipping locker import dialog" }
-                                    coreConfigHolder.update(
-                                        coreConfig.copy(
-                                            useNativeAppStore = true,
-                                        )
-                                    )
-                                    libPebble.requestLockerSync()
-                                    topBarParams.showSnackbar("Please wait while your locker syncs in the background")
-                                }
-                            }
+                    section = Section.Speech,
+                    items = CactusSTTMode.entries,
+                    selectedItem = coreConfig.sttConfig.mode,
+                    onItemSelected = {
+                        if (it != CactusSTTMode.RemoteOnly && !hasOfflineModels) {
+                            pendingSTTModeDialog = it
                         } else {
                             coreConfigHolder.update(
                                 coreConfig.copy(
-                                    useNativeAppStore = false,
+                                    sttConfig = coreConfig.sttConfig.copy(
+                                        mode = it
+                                    )
                                 )
                             )
-                            libPebble.requestLockerSync()
-                            topBarParams.showSnackbar("Please wait while your locker syncs in the background")
                         }
+                    },
+                    itemText = { mode ->
+                        when (mode) {
+                            CactusSTTMode.RemoteOnly -> "Disabled"
+                            CactusSTTMode.RemoteFirst -> "Fallback only"
+                            CactusSTTMode.LocalOnly -> "Forced"
+                            CactusSTTMode.LocalFirst -> "Preferred"
+                        }
+                    },
+                ),
+                basicSettingsActionItem(
+                    title = "Manage Offline Models",
+                    description = if (coreConfig.sttConfig.mode == CactusSTTMode.LocalOnly) {
+                        "Note: Offline speech recognition is lower accuracy, consider using" +
+                                "'Fallback only' mode to improve results when online"
+                    } else {
+                        null
+                    },
+                    keywords = "cactus stt speech recognition offline",
+                    topLevelType = TopLevelType.Phone,
+                    section = Section.Speech,
+                    show = { coreConfig.sttConfig.mode != CactusSTTMode.RemoteOnly || hasOfflineModels },
+                    action = {
+                        navBarNav.navigateTo(PebbleNavBarRoutes.OfflineModelsRoute)
                     },
                 ),
                 basicSettingsToggleItem(
                     title = "Ignore other Pebble apps",
                     description = "Allow connection even when there are other Pebble apps installed on this phone. Warning: this will likely make the connection unreliable if you are using BLE! We don't recommend enabling this",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.Default,
+                    section = Section.Connectivity,
                     checked = coreConfig.ignoreOtherPebbleApps,
                     onCheckChanged = {
                         coreConfigHolder.update(
@@ -1088,6 +1178,9 @@ please disable the option.""".trimIndent(),
                     onCheckChanged = {
                         enableFirebase.value = it
                         settings.set(KEY_ENABLE_FIREBASE_UPLOADS, it)
+                        if (!it) {
+                            coreAnalytics.logEvent("crashlytics_collection_disabled")
+                        }
                         Firebase.crashlytics.setCrashlyticsCollectionEnabled(it)
                     },
                 ),
@@ -1099,6 +1192,9 @@ please disable the option.""".trimIndent(),
                     checked = enableMemfault.value,
                     onCheckChanged = {
                         enableMemfault.value = it
+                        if (!it) {
+                            coreAnalytics.logEvent("memfault_collection_disabled")
+                        }
                         settings.set(KEY_ENABLE_MEMFAULT_UPLOADS, it)
                     },
                 ),
@@ -1111,6 +1207,9 @@ please disable the option.""".trimIndent(),
                     onCheckChanged = {
                         enableMixpanel.value = it
                         settings.set(KEY_ENABLE_MIXPANEL_UPLOADS, it)
+                        if (!it) {
+                            coreAnalytics.logEvent("mixpanel_collection_disabled")
+                        }
                         analyticsBackend.setEnabled(it)
                     },
                 ),
@@ -1122,6 +1221,24 @@ please disable the option.""".trimIndent(),
                     action = { postTestNotification(appContext) },
                     show = { pebbleFeatures.supportsPostTestNotification() },
                 ),
+                basicSettingsDropdownItem(
+                    title = "Watch type for unknown devices",
+                    topLevelType = TopLevelType.Phone,
+                    section = Section.Debug,
+                    items = WatchType.entries,
+                    selectedItem = libPebbleConfig.watchConfig.unknownWatchTypePlatform,
+                    onItemSelected = {
+                        libPebble.updateConfig(
+                            libPebbleConfig.copy(
+                                watchConfig = libPebbleConfig.watchConfig.copy(
+                                    unknownWatchTypePlatform = it
+                                )
+                            )
+                        )
+                    },
+                    itemText = { it.name },
+                    isDebugSetting = true,
+                ),
                 basicSettingsActionItem(
                     title = "Force JSCore GC",
                     description = "",
@@ -1130,7 +1247,7 @@ please disable the option.""".trimIndent(),
                     action = {
                         libPebble.watches.value.filterIsInstance<ConnectedPebble.CompanionAppControl>()
                             .forEach {
-                                (it.currentCompanionAppSession.value as? PKJSApp)?.debugForceGC()
+                                it.currentCompanionAppSessions.value.filterIsInstance<PKJSApp>().firstOrNull()?.debugForceGC()
                             }
                     },
                     isDebugSetting = true,
@@ -1157,7 +1274,7 @@ please disable the option.""".trimIndent(),
                     section = Section.Debug,
                     action = {
                         GlobalScope.launch {
-                            coreBackgroundSync.doBackgroundSync()
+                            coreBackgroundSync.doBackgroundSync(this, force = true)
                         }
                     },
                     isDebugSetting = true,
@@ -1171,14 +1288,15 @@ please disable the option.""".trimIndent(),
                     isDebugSetting = true,
                 ),
                 basicSettingsActionItem(
-                    title = "Sign Out - Core Devices Account",
-                    description = "Sign out of your Google account",
+                    title = "Sign Out - Pebble Account",
+                    description = "Sign out of your Pebble account",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.Default,
+                    section = Section.Settings,
                     action = {
                         scope.launch {
                             try {
                                 Firebase.auth.signOut()
+                                libPebble.requestLockerSync()
                                 analyticsBackend.setUser(email = null)
                                 logger.d { "User signed out" }
                             } catch (e: Exception) {
@@ -1189,18 +1307,18 @@ please disable the option.""".trimIndent(),
                     show = { coreUser != null },
                 ),
                 basicSettingsActionItem(
-                    title = "Sign In - Core Devices Account",
-                    description = "Sign in to Core account to backup settings, apps, etc",
+                    title = "Sign In - Pebble Account",
+                    description = "Sign in to backup your Pebble account to backup apps, settings, etc",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.Default,
-                    button = { SignInButton() },
+                    section = Section.Settings,
+                    action = { showSignInDialog = true },
                     show = { coreUser == null },
                 ),
                 basicSettingsActionItem(
                     title = "Sign Out - Rebble",
                     description = "Sign out of your Rebble account",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.Default,
+                    section = Section.Settings,
                     action = {
                         scope.launch {
                             pebbleAccount.setToken(null, null)
@@ -1212,7 +1330,7 @@ please disable the option.""".trimIndent(),
                     title = "Emulate Timeline Webservice",
                     description = "Intercept calls to Timeline webservice, instead inserting pins locally, immediately",
                     topLevelType = TopLevelType.Phone,
-                    section = Section.Timeline,
+                    section = Section.Apps,
                     checked = libPebbleConfig.watchConfig.emulateRemoteTimeline,
                     onCheckChanged = {
                         libPebble.updateConfig(
@@ -1224,6 +1342,16 @@ please disable the option.""".trimIndent(),
                         )
                     },
                 ),
+                basicSettingsToggleItem(
+                    title = "Use Pebble Weather Service when apps are broken",
+                    description = "If old apps are using a broken weather API, attempt to use the Pebble Weather Service instead (will only work for some apps which use OpenWeather API)",
+                    topLevelType = TopLevelType.Phone,
+                    section = Section.Apps,
+                    checked = coreConfig.interceptPKJSWeather,
+                    onCheckChanged = {
+                        coreConfigHolder.update(coreConfig.copy(interceptPKJSWeather = it))
+                    },
+                ),
             ) + watchPrefs
         }
 
@@ -1233,28 +1361,24 @@ please disable the option.""".trimIndent(),
                     TopLevelType.Phone -> true
                     TopLevelType.Watch -> anyWatchSupportsSettingsSync
                     TopLevelType.All -> coreConfig.showAllSettingsTab
-                    TopLevelType.Notifications -> coreConfig.enableIndex
+                    TopLevelType.Notifications -> false
                 }
             }
         }
-        var selectedTopLevelType by remember { mutableStateOf(TopLevelType.Phone) }
-        LaunchedEffect(selectedTopLevelType) {
-            topBarParams.title(selectedTopLevelType.displayName)
-        }
 
         val validSettingsItems =
-            remember(rawSettingsItems, selectedTopLevelType, debugOptionsEnabled) {
+            remember(rawSettingsItems, viewModel.selectedTopLevelType, debugOptionsEnabled) {
                 rawSettingsItems.filter {
-                    selectedTopLevelType.show(it.topLevelType) &&
+                    viewModel.selectedTopLevelType.show(it.topLevelType) &&
                             (debugOptionsEnabled || !it.isDebugSetting)
                 }
             }
 
-        val searchQuery = topBarParams.searchState.query
+        val searchQuery = viewModel.searchState.query
 
         val filteredItems by remember(
             validSettingsItems,
-            topBarParams.searchState.query,
+            viewModel.searchState.query,
             coreUser,
         ) {
             derivedStateOf {
@@ -1280,7 +1404,6 @@ please disable the option.""".trimIndent(),
         val groupedItemsToDisplay = remember(filteredItems) {
             filteredItems.groupBy { it.section }.entries.sortedBy { it.key.ordinal }
         }
-        val listState = rememberLazyListState()
         val indexForSection = remember(groupedItemsToDisplay) {
             val map = mutableMapOf<Section, Int>()
             var currentIndex = 0
@@ -1294,7 +1417,7 @@ please disable the option.""".trimIndent(),
 
         Scaffold(
             floatingActionButton = {
-                if (selectedTopLevelType == TopLevelType.Notifications) {
+                if (viewModel.selectedTopLevelType == TopLevelType.Notifications) {
                     return@Scaffold
                 }
                 var showSectionsMenu by remember { mutableStateOf(false) }
@@ -1324,13 +1447,14 @@ please disable the option.""".trimIndent(),
                     }
                 }
             },
+            snackbarHost = { SnackbarHost(localSnackbarHostState) }
         ) {
             Column {
                 // Only show tab buttons at top of there is more than one
                 if (availableTopLevelTypes.size > 1) {
                     Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
                         SingleChoiceSegmentedButtonRow {
                             availableTopLevelTypes.forEachIndexed { index, type ->
@@ -1339,19 +1463,33 @@ please disable the option.""".trimIndent(),
                                         index = index,
                                         count = availableTopLevelTypes.size
                                     ),
-                                    selected = selectedTopLevelType == type,
-                                    onClick = { selectedTopLevelType = type },
+                                    selected = viewModel.selectedTopLevelType == type,
+                                    onClick = { viewModel.selectedTopLevelType = type },
                                     icon = { },
                                     label = {
-                                        Icon(type.icon(platform), contentDescription = type.name)
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Icon(
+                                                type.icon(platform),
+                                                contentDescription = type.name,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                            Text(
+                                                type.displayName,
+                                                fontSize = 10.sp,
+                                                lineHeight = 13.sp,
+                                                modifier = Modifier.padding(top = 3.dp).widthIn(min = 55.dp),
+                                                textAlign = TextAlign.Center,
+                                            )
+                                        }
                                     },
+                                    contentPadding = PaddingValues(horizontal = 5.dp, vertical = 8.dp)
                                 )
                             }
                         }
                     }
                 }
 
-                if (selectedTopLevelType == TopLevelType.Notifications) {
+                if (viewModel.selectedTopLevelType == TopLevelType.Notifications) {
                     NotificationsScreenContent(topBarParams, navBarNav)
                     return@Column
                 }
@@ -1396,6 +1534,7 @@ fun basicSettingsActionItem(
     section: Section,
     button: @Composable (() -> Unit)? = null,
     action: (() -> Unit)? = null,
+    actionIcon: ImageVector? = null,
     description: String? = null,
     keywords: String = "",
     show: () -> Boolean = { true },
@@ -1420,13 +1559,6 @@ fun basicSettingsActionItem(
                     Spacer(modifier = Modifier.width(5.dp))
                     if (button != null) {
                         button()
-                    } else if (action != null) {
-                        PebbleElevatedButton(
-                            onClick = { action() },
-                            text = title,
-                            primaryColor = false,
-                            modifier = Modifier.padding(bottom = 5.dp)
-                        )
                     } else {
                         Text(title)
                     }
@@ -1437,7 +1569,21 @@ fun basicSettingsActionItem(
                     Text(description, fontSize = 12.sp)
                 }
             },
+            trailingContent = {
+                if (action != null) {
+                    Icon(
+                        imageVector = actionIcon ?: Icons.AutoMirrored.Default.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
+            },
             shadowElevation = ELEVATION,
+            modifier = Modifier.run() {
+                if (action != null) {
+                    clickable { action() }
+                } else this
+            },
         )
     }
 )
@@ -1488,10 +1634,12 @@ fun basicSettingsNumberItem(
     onValueChange: (Long) -> Unit,
     min: Int,
     max: Int,
+    unit: String,
     description: String? = null,
     keywords: String = "",
     show: () -> Boolean = { true },
     isDebugSetting: Boolean = false,
+    defaultValue: Long? = null,
 ) = SettingsItem(
     title = title,
     topLevelType = topLevelType,
@@ -1526,7 +1674,29 @@ fun basicSettingsNumberItem(
                             onValueChange(sliderPosition)
                         },
                     )
-                    Text(text = sliderPosition.toString())
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "$sliderPosition $unit",
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(vertical = 6.dp),
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        if (defaultValue != null) {
+                            TextButton(
+                                onClick = {
+                                    onValueChange(defaultValue)
+                                },
+                                enabled = value != defaultValue,
+                            ) {
+                                Text(
+                                    text = "Default: $defaultValue",
+                                    modifier = Modifier.widthIn(max = 150.dp),
+                                    maxLines = 1,
+                                    lineHeight = 12.sp,
+                                )
+                            }
+                        }
+                    }
                 }
             },
             shadowElevation = ELEVATION,
@@ -1536,6 +1706,7 @@ fun basicSettingsNumberItem(
 
 fun <T> basicSettingsDropdownItem(
     title: String,
+    description: String? = null,
     topLevelType: TopLevelType,
     section: Section,
     items: List<T>,
@@ -1561,7 +1732,11 @@ fun <T> basicSettingsDropdownItem(
                 var expanded by remember { mutableStateOf(false) }
                 Box {
                     TextButton(onClick = { expanded = true }) {
-                        Text(itemText(selectedItem))
+                        Text(
+                            text = itemText(selectedItem),
+                            modifier = Modifier.widthIn(max = 150.dp),
+                            maxLines = 1,
+                        )
                     }
                     DropdownMenu(
                         expanded = expanded,
@@ -1577,6 +1752,11 @@ fun <T> basicSettingsDropdownItem(
                             )
                         }
                     }
+                }
+            },
+            supportingContent = {
+                if (description != null) {
+                    Text(description, fontSize = 11.sp)
                 }
             },
             shadowElevation = ELEVATION,
@@ -1647,183 +1827,6 @@ fun PKJSCopyTokenDialog(onDismissRequest: () -> Unit) {
 expect fun getPlatformSTTLanguages(): List<Pair<String, String>>
 
 @Composable
-fun STTModeDialog(
-    onModeSelected: (RequestedSTTMode) -> Unit,
-    onDismissRequest: () -> Unit,
-    selectedMode: RequestedSTTMode,
-    showModelSelection: Boolean = false,
-) {
-    val defaultModel = remember { calculateDefaultSTTModel() }
-    var targetMode by remember { mutableStateOf(selectedMode.mode) }
-    var targetModel by remember {
-        val selected = (selectedMode as? RequestedSTTMode.Enabled)?.modelName
-        mutableStateOf<String>(selected ?: defaultModel)
-    }
-    var showModelDropdown by remember { mutableStateOf(false) }
-    var availableModels by remember { mutableStateOf<List<VoiceModel>?>(null) }
-    LaunchedEffect(availableModels) {
-        if (availableModels == null) {
-            availableModels = withContext(Dispatchers.IO) {
-                val stt = CactusSTT()
-                stt.getVoiceModels()
-            }
-        }
-    }
-
-    M3Dialog(
-        onDismissRequest = onDismissRequest,
-        icon = { Icon(Icons.Default.AppSettingsAlt, contentDescription = null) },
-        title = { Text("Select speech recognition mode") },
-        buttons = {
-            TextButton(
-                onClick = onDismissRequest
-            ) {
-                Text("Cancel")
-            }
-            TextButton(
-                onClick = {
-                    onModeSelected(RequestedSTTMode.Enabled(targetMode, targetModel))
-                }
-            ) {
-                Text("OK")
-            }
-        }
-    ) {
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            item(CactusSTTMode.Disabled) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            targetMode = CactusSTTMode.Disabled
-                        }
-                ) {
-                    RadioButton(
-                        selected = targetMode == CactusSTTMode.Disabled,
-                        onClick = {
-                            targetMode = CactusSTTMode.Disabled
-                        }
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text("Disabled (no speech recognition)")
-                }
-            }
-            item(CactusSTTMode.Local) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            targetMode = CactusSTTMode.Local
-                        }
-                ) {
-                    RadioButton(
-                        selected = targetMode == CactusSTTMode.Local,
-                        onClick = {
-                            targetMode = CactusSTTMode.Local
-                        }
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Column {
-                        Text("On-device")
-                        Text(
-                            "Speech recognition is performed on the device, using a downloaded model. (Lower accuracy)",
-                            fontSize = 12.sp,
-                        )
-                    }
-                }
-            }
-            item(CactusSTTMode.RemoteFirst) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            targetMode = CactusSTTMode.RemoteFirst
-                        }
-                ) {
-                    RadioButton(
-                        selected = targetMode == CactusSTTMode.RemoteFirst,
-                        onClick = {
-                            targetMode = CactusSTTMode.RemoteFirst
-                        }
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Column {
-                        Text("Remote first")
-                        Text(
-                            "Speech recognition is performed using an online service, with a local fallback.",
-                            fontSize = 12.sp,
-                        )
-                    }
-                }
-            }
-            if (showModelSelection) {
-                if (availableModels == null) {
-                    item {
-                        CircularProgressIndicator(modifier = Modifier.padding(16.dp))
-                    }
-                } else {
-                    item {
-                        Spacer(Modifier.height(16.dp))
-                    }
-                    item {
-                        ExposedDropdownMenuBox(
-                            expanded = showModelDropdown,
-                            onExpandedChange = { showModelDropdown = it }
-                        ) {
-                            TextField(
-                                value = targetModel,
-                                onValueChange = {},
-                                readOnly = true,
-                                trailingIcon = {
-                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = showModelDropdown)
-                                },
-                                colors = ExposedDropdownMenuDefaults.textFieldColors(),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                            )
-
-                            ExposedDropdownMenu(
-                                expanded = showModelDropdown,
-                                onDismissRequest = { showModelDropdown = false }
-                            ) {
-                                availableModels?.forEach { model ->
-                                    DropdownMenuItem(
-                                        text = { Text("${model.slug} (${model.size_mb} MB)") },
-                                        onClick = {
-                                            targetModel = model.slug
-                                            showModelDropdown = false
-                                        },
-                                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                item {
-                    Spacer(Modifier.height(8.dp))
-                }
-                item {
-                    val modelSize = remember(availableModels) {
-                        availableModels?.firstOrNull {it.slug == defaultModel}?.size_mb
-                    }
-                    modelSize?.let {
-                        Text("Estimated download size: $modelSize MB", fontSize = 12.sp)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun STTLanguageDialog(
     onLanguageSelected: (String?) -> Unit,
     onDismissRequest: () -> Unit,
@@ -1884,29 +1887,39 @@ fun STTLanguageDialog(
     }
 }
 
-
-@Preview
-@Composable
-fun STTModeDialogPreview() {
-    PreviewWrapper {
-        STTModeDialog(
-            onModeSelected = {},
-            onDismissRequest = {},
-            selectedMode = RequestedSTTMode.Enabled(
-                mode = CactusSTTMode.Local,
-                modelName = "en-us-vosk-small",
-            ),
-            showModelSelection = true,
-        )
-    }
-}
-
 expect fun makeTokenClipEntry(token: String): ClipEntry
 
 object SettingsKeys {
     const val KEY_ENABLE_MEMFAULT_UPLOADS = "enable_memfault_uploads"
     const val KEY_ENABLE_FIREBASE_UPLOADS = "enable_firebase_uploads"
     const val KEY_ENABLE_MIXPANEL_UPLOADS = "enable_mixpanel_uploads"
-    const val KEY_CACTUS_MODE = "cactus_mode"
-    const val KEY_CACTUS_STT_MODEL = "cactus_stt_model"
+}
+
+enum class RegularSyncInterval(
+    val period: Duration,
+    val displayName: String,
+) {
+    SixHours(6.hours, "6 hours"),
+    TwelveHours(12.hours, "12 hours"),
+    TwentyFourHours(24.hours, "24 hours"),
+    ;
+
+    companion object {
+        fun from(period: Duration): RegularSyncInterval = entries.find { it.period == period } ?: SixHours
+    }
+}
+
+enum class WeatherSyncInterval(
+    val period: Duration,
+    val displayName: String,
+) {
+    FifteenMinutes(15.minutes, "15 minutes"),
+    ThirtyMinutes(30.minutes, "30 minutes"),
+    OneHour(1.hours, "1 hour"),
+    SixHours(6.hours, "6 hours"),
+    ;
+
+    companion object {
+        fun from(period: Duration): WeatherSyncInterval = entries.find { it.period == period } ?: OneHour
+    }
 }

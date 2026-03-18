@@ -43,6 +43,7 @@ import androidx.lifecycle.ViewModel
 import coredevices.pebble.Platform
 import io.rebble.libpebblecommon.connection.NotificationApps
 import io.rebble.libpebblecommon.database.dao.ChannelAndCount
+import io.rebble.libpebblecommon.database.isAfter
 import io.rebble.libpebblecommon.database.entity.ChannelGroup
 import io.rebble.libpebblecommon.database.entity.ChannelItem
 import io.rebble.libpebblecommon.database.entity.MuteState
@@ -97,13 +98,9 @@ fun NotificationAppScreen(
             }
         }
         LaunchedEffect(Unit) {
-            topBarParams.searchAvailable(false)
+            topBarParams.searchAvailable(null)
             topBarParams.actions {}
             topBarParams.title("App Notifications")
-            topBarParams.canGoBack(true)
-            topBarParams.goBack.collect {
-                nav.goBack()
-            }
         }
         appWrapper?.let { appWrapper ->
             val app = appWrapper.app
@@ -235,7 +232,20 @@ private fun ChannelCard(
     channelCounts: Map<String, ChannelAndCount>,
     nav: NavBarNav,
 ) {
-    val appMuted = app.muteState != MuteState.Never
+    val expiration = app.muteExpiration
+    val appMuted = when {
+        // Check temporary mute first (takes priority)
+        expiration != null -> {
+            // Temporary mute: check if it hasn't expired yet
+            val now = kotlin.time.Clock.System.now()
+            expiration.isAfter(now)
+        }
+        app.muteState == MuteState.Never -> false
+        else -> {
+            // Permanent or schedule-based mute (Always, Weekdays, Weekends)
+            true
+        }
+    }
     val channelMuted = channelItem.muteState != MuteState.Never
     val count = channelCounts[channelItem.id]?.count
     val clickable = count != null && count > 0

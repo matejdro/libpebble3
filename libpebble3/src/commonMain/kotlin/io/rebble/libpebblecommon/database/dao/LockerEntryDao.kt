@@ -2,6 +2,7 @@ package io.rebble.libpebblecommon.database.dao
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.RewriteQueriesToDropUnusedColumns
 import androidx.room.Transaction
 import io.rebble.libpebblecommon.database.entity.LockerEntry
 import io.rebble.libpebblecommon.database.entity.LockerEntryDao
@@ -24,6 +25,12 @@ interface LockerEntryRealDao : LockerEntryDao {
     @Query("""
         SELECT id FROM LockerEntryEntity
         WHERE deleted = 0
+    """)
+    fun getAllUuidsFlow(): Flow<List<Uuid>>
+
+    @Query("""
+        SELECT id FROM LockerEntryEntity
+        WHERE deleted = 0
         AND type = :type
         ORDER BY orderIndex ASC
         LIMIT :limit
@@ -35,12 +42,24 @@ interface LockerEntryRealDao : LockerEntryDao {
         val title: String,
         val type: String,
         val developerName: String,
+        val orderIndex: Int,
+        val active: Boolean,
+        val grantedPermissions: List<String>?,
+        val sideloaded: Boolean,
+        val systemApp: Boolean,
     )
 
     @Query("""
-        SELECT id, type, title, developerName FROM LockerEntryEntity WHERE deleted = 0
+        SELECT * FROM LockerEntryEntity WHERE deleted = 0
     """)
+    @RewriteQueriesToDropUnusedColumns
     fun getAllBasicInfoFlow(): Flow<List<DbAppBasicProperties>>
+
+    @Query("""
+        SELECT * FROM LockerEntryEntity WHERE deleted = 0
+    """)
+    @RewriteQueriesToDropUnusedColumns
+    suspend fun getAllBasicInfo(): List<DbAppBasicProperties>
 
     @Transaction
     suspend fun insertOrReplaceAndOrder(entry: LockerEntry, syncLimit: Int) {
@@ -71,9 +90,6 @@ interface LockerEntryRealDao : LockerEntryDao {
         updateOrder(entry.type)
         updateSync(syncLimit)
     }
-
-    @Query("SELECT * FROM LockerEntryEntity WHERE deleted = 0")
-    suspend fun getAll(): List<LockerEntry>
 
     @Query("""
         UPDATE LockerEntryEntity
@@ -130,4 +146,34 @@ interface LockerEntryRealDao : LockerEntryDao {
         END
     """)
     suspend fun updateSync(syncLimit: Int)
+
+    @Query("""
+        UPDATE LockerEntryEntity
+        SET active = 1
+        WHERE id = :uuid
+        AND active != 1
+    """)
+    suspend fun _setActiveForUuid(uuid: String)
+
+    @Query("""
+        UPDATE LockerEntryEntity
+        SET active = 0
+        WHERE id != :uuid
+        AND active = 1
+    """)
+    suspend fun _setNonActiveExceptUuid(uuid: String)
+
+    @Transaction
+    suspend fun setActive(uuid: Uuid) {
+        _setNonActiveExceptUuid(uuid.toString())
+        _setActiveForUuid(uuid.toString())
+    }
+
+    @Query("""
+        SELECT * FROM LockerEntryEntity
+        WHERE active = 1
+        AND type = 'watchface'
+        LIMIT 1
+    """)
+    fun getActiveWatchface(): Flow<LockerEntry?>
 }

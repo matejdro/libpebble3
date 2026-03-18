@@ -42,8 +42,10 @@ import coredevices.pebble.account.BootConfig
 import coredevices.pebble.account.BootConfigProvider
 import coredevices.pebble.account.iconUrlFor
 import io.rebble.libpebblecommon.connection.NotificationApps
+import io.rebble.libpebblecommon.database.isAfter
 import io.rebble.libpebblecommon.database.dao.AppWithCount
 import io.rebble.libpebblecommon.database.entity.MuteState
+import kotlin.time.Clock
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -65,12 +67,16 @@ enum class NotificationAppSort {
     Count,
 }
 
+enum class EnabledFilter(val label: String) {
+    All("All"),
+    EnabledOnly("Enabled"),
+    DisabledOnly("Disabled"),
+}
+
 @Composable
 fun NotificationsScreen(topBarParams: TopBarParams, nav: NavBarNav) {
     LaunchedEffect(Unit) {
         topBarParams.title("Notifications")
-        topBarParams.canGoBack(false)
-        topBarParams.searchAvailable(true)
         topBarParams.actions {}
     }
 
@@ -82,6 +88,9 @@ fun NotificationsScreenContent(topBarParams: TopBarParams, nav: NavBarNav) {
     Box(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
         val viewModel = koinViewModel<NotificationScreenViewModel>()
         val pebbleFeatures = koinInject<PebbleFeatures>()
+        fun gotoDefaultTab() {
+            viewModel.tab.value = NotificationTab.Apps
+        }
 
         Column {
             if (pebbleFeatures.supportsNotificationFiltering()) {
@@ -105,8 +114,8 @@ fun NotificationsScreenContent(topBarParams: TopBarParams, nav: NavBarNav) {
                 }
             }
             when (viewModel.tab.value) {
-                NotificationTab.Apps -> NotificationAppsScreen(topBarParams, nav)
-                NotificationTab.Contacts -> NotificationContactsScreen(topBarParams, nav)
+                NotificationTab.Apps -> NotificationAppsScreen(topBarParams, nav, ::gotoDefaultTab)
+                NotificationTab.Contacts -> NotificationContactsScreen(topBarParams, nav, ::gotoDefaultTab)
 //            NotificationTab.Rules -> NotificationRulesScreen(topBarParams, nav)
 //            NotificationTab.History -> NotificationHistoryScreen(topBarParams, nav)
             }
@@ -143,7 +152,22 @@ fun NotificationAppCard(
             nav.navigateTo(PebbleNavBarRoutes.NotificationAppRoute(app.packageName))
         }
     } else Modifier
-    val muted = remember(app) { app.muteState != MuteState.Never }
+    val muted = remember(app) {
+        val expiration = app.muteExpiration
+        when {
+            // Check temporary mute first (takes priority)
+            expiration != null -> {
+                // Temporary mute: check if it hasn't expired yet
+                val now = Clock.System.now()
+                expiration.isAfter(now)
+            }
+            app.muteState == MuteState.Never -> false
+            else -> {
+                // Permanent or schedule-based mute (Always, Weekdays, Weekends)
+                true
+            }
+        }
+    }
     ListItem(
         modifier = modifier,
         leadingContent = {

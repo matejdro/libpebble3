@@ -5,9 +5,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.dp
 import coredevices.pebble.rememberLibPebble
+import coredevices.ui.ConfirmDialog
 import io.rebble.libpebblecommon.SystemAppIDs.AIRPLANE_MODE_UUID
 import io.rebble.libpebblecommon.SystemAppIDs.BACKLIGHT_UUID
 import io.rebble.libpebblecommon.SystemAppIDs.HEALTH_APP_UUID
@@ -35,7 +37,7 @@ fun watchPrefs(): List<SettingsItem> {
     val libPebble = rememberLibPebble()
     val settings by libPebble.watchPrefs.collectAsState(emptyList())
     val quickLaunchOptions = quickLaunchOptions(libPebble)
-    val mapped = remember(settings) {
+    val mapped = remember(settings, quickLaunchOptions) {
         settings.map { item ->
             when (val pref = item.pref) {
                 is BoolWatchPref -> booleanPref(pref.castParent(item), libPebble)
@@ -46,29 +48,54 @@ fun watchPrefs(): List<SettingsItem> {
             }
         }
     }
-    return mapped
+    val showConfirmReset = remember { mutableStateOf(false) }
+    ConfirmDialog(
+        show = showConfirmReset,
+        title = "Reset To Defaults?",
+        text = "Reset all settings to defaults",
+        onConfirm = {
+            settings.forEach { setting ->
+                if (setting.value != setting.pref.defaultValue) {
+                    @Suppress("UNCHECKED_CAST")
+                    val pref = setting.pref as WatchPref<Any?>
+                    libPebble.setWatchPref(WatchPreference(pref, pref.defaultValue))
+                }
+            }
+        },
+        confirmText = "Reset",
+    )
+    val reset = basicSettingsActionItem(
+        title = "Reset To Defaults",
+        topLevelType = TopLevelType.Watch,
+        section = Section.Defaults,
+        action = {
+            showConfirmReset.value = true
+        },
+        description = "Reset all watch settings to defaults",
+    )
+    return listOf(reset) + mapped
 }
 
 fun WatchPref<*>.section(): Section = when (this) {
     BoolWatchPref.TimezoneSourceIsManual -> Section.Time
     BoolWatchPref.Clock24h -> Section.Time
-    BoolWatchPref.StandbyMode -> Section.Default
+    BoolWatchPref.StandbyMode -> Section.Other
     BoolWatchPref.LeftHandedMode -> Section.Display
     BoolWatchPref.Backlight -> Section.Display
     BoolWatchPref.AmbientLightSensor -> Section.Display
     BoolWatchPref.BacklightMotion -> Section.Display
     BoolWatchPref.DynamicBacklightIntensity -> Section.Display
-    BoolWatchPref.LanguageEnglish -> Section.Default
+    BoolWatchPref.LanguageEnglish -> Section.Other
     ColorWatchPref.SettingsMenuHighlightColor -> Section.Display
     ColorWatchPref.AppMenuHighlightColor -> Section.Display
     EnumWatchPref.TextSize -> Section.Notifications
-    NumberWatchPref.MotionSensitivity -> Section.Display
+    EnumWatchPref.MotionSensitivity -> Section.Display
     NumberWatchPref.BacklightTimeoutMs -> Section.Display
     NumberWatchPref.AmbientLightThreshold -> Section.Display
     NumberWatchPref.DynamicBacklightMinThreshold -> Section.Display
-    NumberWatchPref.DynamicBacklightMaxThreshold -> Section.Display
     QuicklaunchWatchPref.QlUp -> Section.QuickLaunch
     QuicklaunchWatchPref.QlDown -> Section.QuickLaunch
+    QuicklaunchWatchPref.QlComboBackUp -> Section.QuickLaunch
     QuicklaunchWatchPref.QlSelect -> Section.QuickLaunch
     QuicklaunchWatchPref.QlBack -> Section.QuickLaunch
     QuicklaunchWatchPref.QlSingleClickUp -> Section.QuickLaunch
@@ -88,6 +115,8 @@ fun WatchPref<*>.section(): Section = when (this) {
     BoolWatchPref.NotificationVibeDelay -> Section.Notifications
     BoolWatchPref.NotificationBacklight -> Section.Notifications
     NumberWatchPref.NotificationTimeoutMs -> Section.Notifications
+    BoolWatchPref.MenuScrollWrapAround -> Section.Display
+    EnumWatchPref.MenuScrollVibe -> Section.Display
 }
 
 private fun numberPref(item: WatchPreference<Long>, libPebble: LibPebble): SettingsItem {
@@ -103,6 +132,8 @@ private fun numberPref(item: WatchPreference<Long>, libPebble: LibPebble): Setti
             libPebble.setWatchPref(item.copy(value = it))
         },
         isDebugSetting = pref.isDebugSetting,
+        defaultValue = pref.defaultValue,
+        unit = pref.unit,
     )
 }
 
@@ -174,22 +205,24 @@ private fun quickLaunchOptions(libPebble: LibPebble): List<QuickLaunchOption> {
     val installedApps by libPebble.getLocker(
         type = AppType.Watchapp,
         searchQuery = null,
-        limit = LOCKER_UI_LOAD_LIMIT,
+        limit = 100,
     ).map { apps ->
         apps.filter { app -> app.isSynced() }
     }.collectAsState(emptyList())
-    return listOf(QuickLaunchOption(null, "None")) +
-            QuickLaunchOption(QUIET_TIME_TOGGLE_UUID, "Quiet Time") +
-            QuickLaunchOption(BACKLIGHT_UUID, "Backlight") +
-            QuickLaunchOption(MOTION_BACKLIGHT_UUID, "Backlight") +
-            QuickLaunchOption(AIRPLANE_MODE_UUID, "Airplane Mode") +
-            QuickLaunchOption(TIMELINE_PAST_UUID, "Timeline Past") +
-            QuickLaunchOption(TIMELINE_FUTURE_UUID, "Timeline Future") +
+    return remember(installedApps) {
+        listOf(QuickLaunchOption(null, "None")) +
+                QuickLaunchOption(QUIET_TIME_TOGGLE_UUID, "Quiet Time") +
+                QuickLaunchOption(BACKLIGHT_UUID, "Backlight") +
+                QuickLaunchOption(MOTION_BACKLIGHT_UUID, "Backlight") +
+                QuickLaunchOption(AIRPLANE_MODE_UUID, "Airplane Mode") +
+                QuickLaunchOption(TIMELINE_PAST_UUID, "Timeline Past") +
+                QuickLaunchOption(TIMELINE_FUTURE_UUID, "Timeline Future") +
 
-            QuickLaunchOption(HEALTH_APP_UUID, "Health") +
-            installedApps.map { app ->
-                QuickLaunchOption(app.properties.id, app.properties.title)
-            }
+                QuickLaunchOption(HEALTH_APP_UUID, "Health") +
+                installedApps.map { app ->
+                    QuickLaunchOption(app.properties.id, app.properties.title)
+                }
+    }
 }
 
 private fun quicklaunchPref(item: WatchPreference<QuickLaunchSetting>, libPebble: LibPebble, options: List<QuickLaunchOption>): SettingsItem {

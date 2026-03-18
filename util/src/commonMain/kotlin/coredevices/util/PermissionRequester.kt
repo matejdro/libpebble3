@@ -23,7 +23,7 @@ enum class PermissionResult {
 fun Permission.name(): String = when (this) {
     Permission.Location -> "Location"
     Permission.BackgroundLocation -> "Background Location"
-    Permission.PostNotifications -> "Post Notifications"
+    Permission.PostNotifications -> "Show Notifications"
     Permission.Bluetooth -> "Bluetooth"
     Permission.ReadCallLog -> "Missed Calls"
     Permission.Calendar -> "Calendar"
@@ -36,13 +36,14 @@ fun Permission.name(): String = when (this) {
     Permission.SetAlarms -> "Set Alarms"
     Permission.BatteryOptimization -> "Exempt from Battery Optimizations"
     Permission.Beeper -> "Access Beeper"
+    Permission.Reminders -> "Access Reminders"
 }
 
 fun Permission.description(): String = when (this) {
     Permission.Location -> "To power watchfaces using location for e.g. weather"
     Permission.BackgroundLocation -> "To power watchfaces using location for e.g. weather, while the Pebble app is running in the background"
-    Permission.PostNotifications -> "To create notifications when an update is available, and to show the current connection status to the watch"
-    Permission.Bluetooth -> "To connect over bluetooth"
+    Permission.PostNotifications -> "Get a notification when there is a new software update for your Pebble and show connection status"
+    Permission.Bluetooth -> "Connect to your Pebble"
     Permission.ReadCallLog -> "To access the call log - to show missed calls on the watch"
     Permission.Calendar -> "To show calendar events on the watch, and respond to invitations"
     Permission.Contacts -> "To show who is calling, and filter notifications by contact"
@@ -54,6 +55,7 @@ fun Permission.description(): String = when (this) {
     Permission.SetAlarms -> "To notify when a reminder is triggered"
     Permission.BatteryOptimization -> "To handle recordings in the background"
     Permission.Beeper -> "To send messages via Beeper"
+    Permission.Reminders -> "To create reminders"
 }
 
 abstract class PermissionRequester(
