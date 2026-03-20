@@ -45,8 +45,6 @@ class AppMessageService(
         val all = mutableListOf<Channel<InboundAppMessageData>>()
         val unclaimed = ArrayDeque<Channel<InboundAppMessageData>>()
 
-        var lastAppStartTime: Instant = Instant.DISTANT_PAST
-
         init {
             repeat(MAX_SUBSCRIBERS_PER_APP) {
                 val ch = Channel<InboundAppMessageData>(APPMESSAGE_BUFFER_SIZE)
@@ -85,11 +83,6 @@ class AppMessageService(
                         while (it.tryReceive().isSuccess) {
                             yield()
                         }
-                    }
-                }
-                is AppRunStateMessage.AppRunStateStart -> {
-                    mapAccessMutex.withLock {
-                        getOrCreateGroup(it.uuid.get()).lastAppStartTime = clock.now()
                     }
                 }
             }
@@ -145,15 +138,14 @@ class AppMessageService(
     }
 
     override fun inboundAppMessages(appUuid: Uuid): Flow<AppMessageData> = channelFlow {
-        val (group, channel) = mapAccessMutex.withLock {
-            val group = getOrCreateGroup(appUuid)
-            group to group.claim()
+        val channel = mapAccessMutex.withLock {
+            getOrCreateGroup(appUuid).claim()
         }
         try {
             for (msg in channel) {
                 // Messages can buffer up after an app stops on the phone - don't send these stale
                 // messages after the app starts again.
-                if (group.lastAppStartTime - msg.timestamp > STALE_APPMESSAGE_THRESHOLD) {
+                if (clock.now() - msg.timestamp > STALE_APPMESSAGE_THRESHOLD) {
                     logger.w { "Dropping stale AppMessage ${msg.appMessageData.transactionId} for $appUuid" }
                     continue
                 }
