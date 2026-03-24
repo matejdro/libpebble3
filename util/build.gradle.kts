@@ -128,7 +128,7 @@ kotlin {
                 implementation(libs.uri)
                 implementation(compose.components.uiToolingPreview)
                 implementation(project(":cactus"))
-                implementation(project(":libpebble3"))
+                implementation(libs.libpebble3)
                 implementation(libs.kmpio)
                 api(libs.room.runtime)
                 implementation(libs.sqlite.bundled)

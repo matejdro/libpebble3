@@ -82,7 +82,7 @@ kotlin {
         }
         commonMain {
             dependencies {
-                implementation(project(":libpebble3"))
+                implementation(libs.libpebble3)
                 implementation(compose.runtime)
                 implementation(compose.foundation)
                 implementation(compose.material3)

@@ -6,6 +6,7 @@ agp = "8.13.2"
 kotlin = "2.3.10"
 jvm-toolchain = "17"
 ktor = "3.4.0"
+libpebble3 = "0.0.0"
 coroutine = "1.10.2"
 serialization = "1.10.0"
 sqlite = "2.6.2"
@@ -103,6 +104,8 @@ ktor-client-serialization-json = { module = "io.ktor:ktor-serialization-kotlinx-
 ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
+# Synthetic library declaration that then gets replaced with the included libpebble3
+libpebble3 = { module = "com.coredevices:libpebble3", version.ref = "libpebble3" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 room-paging = { module = "androidx.room:room-paging", version.ref = "room" }

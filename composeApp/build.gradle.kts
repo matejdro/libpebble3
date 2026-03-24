@@ -216,7 +216,7 @@ kotlin {
             implementation(project(":experimental"))
             implementation(libs.kmpnotifier)
             implementation(libs.kmpio)
-            implementation(project(":libpebble3"))
+            implementation(libs.libpebble3)
         }
     }
 }

@@ -24,9 +24,13 @@ dependencyResolutionManagement {
 
 rootProject.name = "libpebbleroot"
 
-include(":libpebble3")
-include(":blobdbgen")
-include(":blobannotations")
+includeBuild("libpebble3") {
+    dependencySubstitution {
+        substitute(module("com.coredevices:libpebble3"))
+            .using(project(":libpebble3"))
+    }
+}
+
 include(":composeApp")
 include(":pebble")
 include(":util")
