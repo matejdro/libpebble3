@@ -12,6 +12,7 @@ import io.rebble.libpebblecommon.services.ProtocolService
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.filter
@@ -66,7 +67,7 @@ class AppMessageService(
                 }
             } ?: run {
                 logger.w { "Timed out sending AppMessage ${appMessageData.transactionId}" }
-                AppMessageResult.NACK(appMessageData.transactionId)
+                AppMessage.AppMessageNACK(appMessageData.transactionId)
             }
         }
         protocolHandler.send(appMessage)
