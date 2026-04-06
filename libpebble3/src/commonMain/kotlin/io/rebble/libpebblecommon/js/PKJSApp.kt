@@ -149,8 +149,8 @@ class PKJSApp(
                jsRunner.signalShowConfiguration()
             } else {
                logger.e { "JsRunner not initialized, cannot show configuration" }
-                url.cancel()
-                return null
+               url.cancel()
+               return null
             }
         } catch (e: Exception) {
             url.cancel()
