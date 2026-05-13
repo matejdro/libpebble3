@@ -77,7 +77,7 @@ fun CalendarEvent.toTimelineReminder(timestamp: Instant, pinUuid: Uuid): Timelin
         }
     }
 
-fun CalendarEvent.toTimelinePin(calendar: CalendarEntity): TimelinePin = buildTimelinePin(
+fun CalendarEvent.toTimelinePin(calendar: CalendarEntity, vibePattern: List<UInt>? = null): TimelinePin = buildTimelinePin(
     parentId = CALENDAR_APP_UUID,
     timestamp = startTime,
 ) {
@@ -138,6 +138,7 @@ fun CalendarEvent.toTimelinePin(calendar: CalendarEntity): TimelinePin = buildTi
 //        }
         stringList(TimelineAttribute.Headings) { headings }
         stringList(TimelineAttribute.Paragraphs) { paragraphs }
+        vibePattern?.let { vibrationPattern { it } }
     }
     actions {
         // TODO actions

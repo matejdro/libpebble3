@@ -134,6 +134,7 @@ data class NotificationConfig(
     val sendNotifications: Boolean = true,
     val useAndroidVibePatterns: Boolean = false,
     val overrideDefaultVibePattern: String? = null,
+    val overrideCalendarVibePattern: String? = null,
 )
 
 class NotificationConfigFlow(val flow: StateFlow<LibPebbleConfig>) {

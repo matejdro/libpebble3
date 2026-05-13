@@ -1,6 +1,7 @@
 package io.rebble.libpebblecommon.calendar
 
 import co.touchlab.kermit.Logger
+import io.rebble.libpebblecommon.NotificationConfigFlow
 import io.rebble.libpebblecommon.SystemAppIDs.CALENDAR_APP_UUID
 import io.rebble.libpebblecommon.WatchConfigFlow
 import io.rebble.libpebblecommon.connection.Calendar
@@ -8,6 +9,7 @@ import io.rebble.libpebblecommon.connection.endpointmanager.blobdb.TimeProvider
 import io.rebble.libpebblecommon.database.dao.CalendarDao
 import io.rebble.libpebblecommon.database.dao.TimelinePinRealDao
 import io.rebble.libpebblecommon.database.dao.TimelineReminderRealDao
+import io.rebble.libpebblecommon.database.dao.VibePatternDao
 import io.rebble.libpebblecommon.database.entity.CalendarEntity
 import io.rebble.libpebblecommon.database.entity.TimelinePin
 import io.rebble.libpebblecommon.database.entity.TimelineReminder
@@ -33,6 +35,8 @@ class PhoneCalendarSyncer(
     private val libPebbleCoroutineScope: LibPebbleCoroutineScope,
     private val timelineReminderDao: TimelineReminderRealDao,
     private val watchConfig: WatchConfigFlow,
+    private val notificationConfigFlow: NotificationConfigFlow,
+    private val vibePatternDao: VibePatternDao,
 ) : Calendar {
     private val logger = Logger.withTag("PhoneCalendarSyncer")
     private val syncTrigger = MutableSharedFlow<Unit>()
@@ -129,6 +133,8 @@ class PhoneCalendarSyncer(
         val existingPins = timelinePinDao.getPinsForWatchapp(CALENDAR_APP_UUID)
         val startDate = timeProvider.now() - 1.days
         val endDate = (startDate + 7.days)
+        val calendarVibePattern = notificationConfigFlow.value.overrideCalendarVibePattern
+            ?.let { vibePatternDao.getVibePattern(it)?.pattern }
         val newPins = allCalendars.flatMap { calendar ->
             if (!calendar.enabled || !pinsEnabled) {
                 return@flatMap emptyList()
@@ -140,7 +146,7 @@ class PhoneCalendarSyncer(
                     currentUserAttendee?.attendanceStatus != EventAttendee.AttendanceStatus.Declined
                 }
             events.map { event ->
-                EventAndPin(event, event.toTimelinePin(calendar))
+                EventAndPin(event, event.toTimelinePin(calendar, calendarVibePattern))
             }
         }
         val remindersToInsert = mutableListOf<TimelineReminder>()
